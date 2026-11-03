@@ -50,10 +50,10 @@ if ($options['help']) {
     cli_writeln("Read-only Membership Bridge connection test.
 
 Runs GetBridgeSettings, and MoodleGetUserProfile when --imisid is given.
-No data is written to iMIS or Moodle.
+No data is written to the membership system or Moodle.
 
 Options:
-  --imisid=ID   Also look up the iMIS contact with this ID.
+  --imisid=ID   Also look up the member with this ID.
   -h, --help    Print this help.
 
 Example:
@@ -93,7 +93,7 @@ try {
         cli_writeln("\nConnectivity and credentials (AuthToken) verified.");
     } else {
         cli_writeln("\nConnectivity and WSDL verified (the AuthToken was included if configured). "
-            . "For a definitive credential check, re-run with --imisid=<valid iMIS ID> to exercise "
+            . "For a definitive credential check, re-run with --imisid=<valid member ID> to exercise "
             . "an authenticated profile lookup.");
     }
 

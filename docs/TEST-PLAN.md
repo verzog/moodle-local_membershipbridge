@@ -308,7 +308,7 @@ change groups on the Moodle it runs on. Go-live steps and prerequisites are in
 | L1 | Sync disabled (default) | Task logs "disabled … skipping"; no REST call | ☐ | |
 | L2 | Enabled, REST base URL blank | Task logs "REST connection not configured; skipping" | ☐ | Needed even with `transport = soap` |
 | L3 | Enabled, dry run on (default) | Log names each group it would **create**, then one `would add` / `would remove user N (iMIS …)` line per member, for new **and** existing groups; plus skips, guard trips and the summary totals; **nothing** changes in Moodle | ☐ | Per-member lines since 1.19.7. Removals held back by the guard are not listed individually |
-| L4 | Dry run off | Groups created under grouping *Tutorials (iMIS)*; members match the panel | ☐ | |
+| L4 | Dry run off | Groups created under grouping *Tutorial groups (synced)* (*Tutorials (iMIS)* on sites first synced before 2.2.1); members match the panel | ☐ | |
 | L5 | Remove a member in iMIS, re-run | Removed from the Moodle group; still enrolled in the course | ☐ | |
 | L6 | Panel row for an unmapped code / unknown iMIS ID / unenrolled user | Row skipped with the matching reason in the log; others proceed | ☐ | Course lookup sends `&Parameter={code}/REG` (1.19.2) |
 | L7 | Panel read returns no rows | Run aborts, **no** changes | ☐ | Protects against an outage emptying every group |
@@ -351,7 +351,7 @@ in `CHANGEOVER-CHECKLIST.md` §R.
 | N12 | *Course mapping overrides* `ACCD_26=<test course>` on staging | ACCD_26 registrations (and its tutorial groups) resolve to the test course with no `MoodleCourseLookup` call for that code; a mapping to a missing course is "no Moodle course mapped" | ☐ | Staging only |
 | N13 | *Push course id overrides* `19=2152` on staging; push a completion from course 19 for a member with an existing iMIS result for 2152 | The push carries course 2152; over REST the member's existing MOODLE row for 2152 is updated in place (same SEQN), not duplicated; notes are appended as MOODLENOTE | ☐ | Staging only |
 | N14 | `cli/backfill.php --course=ID --type=all`, then again with `--execute` | Dry run lists each completer (real completion date) and each unsent score of a ticked type, and queues nothing; `--execute` queues them; a second `--execute` queues no scores (already sent). Respects *Push completions*, the ticked types and push course id overrides | ☐ | Back-fill |
-| N15 | *iMIS ID format* = Digits only; complete a course as a user whose ID number is `anon47`; run the back-fill | No push is queued for `anon47` (and no login sync); the back-fill reports "'anon47' is not in the iMIS ID format; skipped"; members with numeric IDs are unaffected | ☐ | |
+| N15 | *Member ID format* = Digits only; complete a course as a user whose ID number is `anon47`; run the back-fill | No push is queued for `anon47` (and no login sync); the back-fill reports "'anon47' is not in the iMIS ID format; skipped"; members with numeric IDs are unaffected | ☐ | |
 
 ---
 

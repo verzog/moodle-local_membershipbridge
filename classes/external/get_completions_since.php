@@ -240,10 +240,10 @@ class get_completions_since extends external_api {
                     'userid'          => new external_value(PARAM_INT, 'Moodle user id.'),
                     'imisid'          => new external_value(
                         PARAM_RAW,
-                        'The iMIS contact ID resolved from the configured source field '
+                        'The member ID resolved from the configured source field '
                             . '(username, ID number or email).'
                     ),
-                    'username'        => new external_value(PARAM_RAW, 'Moodle username (normally the member\'s iMIS ID).'),
+                    'username'        => new external_value(PARAM_RAW, 'Moodle username (normally the member ID).'),
                     'useridnumber'    => new external_value(PARAM_RAW, 'Moodle user ID number.'),
                     'courseid'        => new external_value(PARAM_INT, 'Moodle course id.'),
                     'courseshortname' => new external_value(PARAM_RAW, 'Course short name.'),

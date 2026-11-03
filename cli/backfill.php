@@ -48,7 +48,7 @@ if ($unrecognised) {
 
 $types = ['completions', 'scores', 'all'];
 if ($options['help'] || (int)$options['course'] <= 0 || !in_array($options['type'], $types, true)) {
-    cli_writeln("Back-fill one course's existing results to iMIS.
+    cli_writeln("Back-fill one course's existing results to the membership system.
 
 Queues a push for each existing course completion (with its real completion date)
 and/or each activity score of a type ticked in Push activity scores, as if it had
@@ -62,7 +62,7 @@ admin/cli/adhoc_task.php --execute to send them now.
 Options:
   --course=ID        The Moodle course ID (required).
   --type=TYPE        completions (default), scores or all.
-  --member=IMISID    Only this member.
+  --member=ID        Only this member ID.
   --execute          Queue the pushes (default: dry run).
   -h, --help         Print this help.
 

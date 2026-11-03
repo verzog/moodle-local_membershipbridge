@@ -4,6 +4,25 @@ All notable changes to the iMIS Bridge plugin (`local_imisbridge`) are documente
 in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-11-03
+
+Wording only: no change to what the plugin does.
+
+### Changed
+- Settings, task log messages and command-line help say "membership system" and
+  "member ID" instead of "iMIS" wherever the meaning is not specific to iMIS. Setting
+  names include *Member ID format* (was *iMIS ID format*), *REST base URL*,
+  *Service-account username/password* and *Activity column: …*.
+- The connection providers are now labelled *ATS SOAP bridge* and *Direct REST API*
+  (were *ATS SOAP bridge (iMIS)* and *Direct iMIS REST*). The stored values are
+  unchanged, so no setting needs re-saving.
+- Log lines name the member as `member 20001` instead of `iMIS 20001`.
+- New tutorial groupings are named *Tutorial groups (synced)*. Groupings already
+  created as *Tutorials (iMIS)* keep their name, since the sync finds its grouping by
+  ID number; rename them by hand if you like.
+- `docs/SETUP.md` says which features start as soon as a connection is set up, and
+  to untick them first.
+
 ## [2.2.0] - 2026-10-29
 
 Makes the plugin usable by any iMIS organisation, not only SCCA. An existing site

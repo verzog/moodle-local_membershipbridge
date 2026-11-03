@@ -29,7 +29,7 @@ $functions = [
         'classname'   => 'local_membershipbridge\\external\\get_completions_since',
         'methodname'  => 'execute',
         'description' => 'Return course completions and final course grades changed since a given time, '
-            . 'for bulk pull synchronisation to iMIS.',
+            . 'for bulk pull synchronisation to the membership system.',
         'type'        => 'read',
         'capabilities' => 'local/membershipbridge:readcompletions',
         'ajax'        => false,

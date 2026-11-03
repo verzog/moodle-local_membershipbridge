@@ -116,7 +116,7 @@ class backfill {
             }
             $report['queued']++;
             $this->log($report, sprintf(
-                'iMIS %s (user %d): %s completion on %s, score %s, as course %s',
+                'member %s (user %d): %s completion on %s, score %s, as course %s',
                 $imisid,
                 (int)$row->userid,
                 $this->execute ? 'queued' : 'would queue',
@@ -174,7 +174,7 @@ class backfill {
                 }
                 $report['found']++;
                 $label = sprintf(
-                    'iMIS %s (user %d): %s "%s" score %s',
+                    'member %s (user %d): %s "%s" score %s',
                     $imisid,
                     (int)$grade->userid,
                     $item->itemmodule,
@@ -229,7 +229,7 @@ class backfill {
         }
         if ($imisid === '') {
             $report['skipped']++;
-            $reason = ($raw === '') ? 'no iMIS ID' : "'{$raw}' is not in the iMIS ID format";
+            $reason = ($raw === '') ? 'no member ID' : "'{$raw}' is not in the member ID format";
             $this->log($report, "user {$userid}: {$reason}; skipped");
             return null;
         }

@@ -5,8 +5,15 @@ settings to fill in. SCCA's own go-live runbook is `CHANGEOVER-CHECKLIST.md`; th
 guide is the general version.
 
 All settings are under *Site administration → Plugins → Local plugins → Membership
-Bridge*. Every feature that writes to Moodle or iMIS is off, or in dry-run mode,
-until you turn it on.
+Bridge*.
+
+**Some features start as soon as a connection is set up.** Nothing is sent until
+the connection settings (§2) are filled in, but then these are on by default:
+*Push course completions*, *Push quiz scores*, the three *Sync … on login* settings
+and the three nightly sync tasks. Untick any you are not ready for **before**
+entering the connection details, and turn each back on as you set it up. The REST
+registration sync and the tutorial group sync start in dry-run mode, and module
+completions and activity scores are off until you choose them.
 
 ## 1. Install
 
@@ -22,8 +29,8 @@ until you turn it on.
 - **ATS SOAP bridge**, if your iMIS is connected to Moodle through ATS's
   `wsmoodle.asmx` web service: set *ATS SOAP bridge WSDL URL* and *ATS API
   AuthToken*, which ATS gives you.
-- **Direct iMIS REST**, to talk to the iMIS REST API with no middleware. Set *iMIS
-  REST base URL* (your iMIS site address, for example `https://yourorg.imiscloud.com`),
+- **Direct REST API**, to talk to the iMIS REST API with no middleware. Set *REST
+  base URL* (your iMIS site address, for example `https://yourorg.imiscloud.com`),
   and a dedicated iMIS service account's username and password. Use an account
   made for this, not a person's login.
 
@@ -33,7 +40,7 @@ settings, whichever provider sends records. `PROVIDERS.md` describes the design.
 ## 3. Match Moodle users to iMIS members
 
 *Member ID source* says which Moodle user field holds the member's iMIS ID:
-username (the default), ID number or email. *iMIS ID format* can limit it to digits
+username (the default), ID number or email. *Member ID format* can limit it to digits
 only. Users without an ID in that field are skipped.
 
 ## 4. Send results to iMIS
@@ -56,7 +63,7 @@ course an iMIS event belongs to. Choose one under *Course mapping*:
 - **Moodle course ID number** (nothing to build in iMIS). Set each course's *Course
   ID number* (*Course settings → General*) to its iMIS event code, for example
   `ACCD_26`. If two courses share an ID number, that event is left unmapped.
-- **iMIS lookup query.** Build an IQA that takes the code as its one prompt and
+- **Lookup query.** Build an IQA that takes the code as its one prompt and
   returns the Moodle course id in a `Description` column (a `Code` column, if it
   has one, must equal the looked-up code). Tick *Available via REST API*. Set
   *Course lookup IQA* to its path, for example `$/MyOrg/Events/MoodleCourseLookup`.
@@ -111,7 +118,7 @@ Enrols active registrants and suspends cancelled ones, read from iMIS directly.
 1. Build an IQA listing current registrations with the columns `ID`, `EventCode` and
    `Status` (plus `FirstName`, `LastName` and `Email` if Moodle should create missing
    accounts), ticked *Available via REST API*, with no required prompts.
-2. Set *Registrations IQA* to its path, and *Sync provider* to Direct iMIS REST.
+2. Set *Registrations IQA* to its path, and *Sync provider* to Direct REST API.
 3. Choose the course mapping (§5).
 4. Leave *Registration sync: dry run* on, check the log, then turn it off.
 

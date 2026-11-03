@@ -432,7 +432,7 @@ trigger writeback, the audit log, the kill-switches, and SSO (handled by
      check.
 4. **Inbound pull task (§6)** — the strategic win; retire ATS once proven. —
    **DONE (1.21.0)**, building on the pattern the tutorial group sync (1.19.x)
-   proved. With **Sync provider = Direct iMIS REST** and a **Registrations IQA** set,
+   proved. With **Sync provider = Direct REST API** and a **Registrations IQA** set,
    the enrolment and cancellation syncs read that IQA (no prompts; columns `ID`,
    `EventCode`, `Status`, plus optional `RegistrationKey`, `IsActiveRegistration`,
    `EndDate`, `FirstName`, `LastName`, `Email`) and decide **per member and course**:
