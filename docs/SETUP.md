@@ -5,8 +5,15 @@ settings to fill in. SCCA's own go-live runbook is `CHANGEOVER-CHECKLIST.md`; th
 guide is the general version.
 
 All settings are under *Site administration → Plugins → Local plugins → Membership
-Bridge*. Every feature that writes to Moodle or iMIS is off, or in dry-run mode,
-until you turn it on.
+Bridge*.
+
+**Some features start as soon as a connection is set up.** Nothing is sent until
+the connection settings (§2) are filled in, but then these are on by default:
+*Push course completions*, *Push quiz scores*, the three *Sync … on login* settings
+and the three nightly sync tasks. Untick any you are not ready for **before**
+entering the connection details, and turn each back on as you set it up. The REST
+registration sync and the tutorial group sync start in dry-run mode, and module
+completions and activity scores are off until you choose them.
 
 ## 1. Install
 
