@@ -58,7 +58,7 @@ class push_module_note_task extends \core\task\adhoc_task {
         }
         // Re-check the iMIS ID format: it may have been set to Digits only after queueing.
         if (!\local_membershipbridge\util::is_valid_imis_id((string)$data->imisid)) {
-            mtrace('Membership Bridge: ' . $data->imisid . ' is not in the iMIS ID format; skipping.');
+            mtrace('Membership Bridge: ' . $data->imisid . ' is not in the member ID format; skipping.');
             return;
         }
 

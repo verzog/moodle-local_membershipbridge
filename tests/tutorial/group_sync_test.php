@@ -386,7 +386,7 @@ final class group_sync_test extends \advanced_testcase {
         $this->assertSame(1, $report['membersadded']);
         $idnumber = group_sync::make_idnumber('ISC_26', 'Tutorial A');
         $this->assertContains(
-            "group 'Tutorial A' ({$idnumber}): would add user {$user->id} (iMIS 20001)",
+            "group 'Tutorial A' ({$idnumber}): would add user {$user->id} (member 20001)",
             $report['messages'],
             'dry run names each member it would add to a new group'
         );
@@ -424,11 +424,11 @@ final class group_sync_test extends \advanced_testcase {
         )->run();
 
         $this->assertContains(
-            "group 'Tutorial A' ({$idnumber}): would add user {$joining->id} (iMIS 20002)",
+            "group 'Tutorial A' ({$idnumber}): would add user {$joining->id} (member 20002)",
             $report['messages']
         );
         $this->assertContains(
-            "group 'Tutorial A' ({$idnumber}): would remove user {$leaving->id} (iMIS 20001)",
+            "group 'Tutorial A' ({$idnumber}): would remove user {$leaving->id} (member 20001)",
             $report['messages'],
             'a removed member is named from their Moodle account, since iMIS no longer lists them'
         );

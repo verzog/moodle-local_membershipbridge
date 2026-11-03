@@ -508,7 +508,7 @@ keep it that way, so tutorial groups have **one** writer (§T).
 
 A nightly scheduled task (`\local_membershipbridge\task\sync_tutorial_groups`, 02:45 by
 default) reads the iMIS `MoodleTutorialGroup` panel and makes each course's groups
-match it: it creates the groups (under the grouping **Tutorials (iMIS)**), adds the
+match it: it creates the groups (under the grouping **Tutorial groups (synced)**; **Tutorials (iMIS)** on a course first synced before 2.2.1), adds the
 people iMIS lists, and removes the people iMIS no longer lists. It runs as cron
 using Moodle's internal group API, so it needs **no** Moodle web-service user or
 group capabilities — only an **iMIS** account that can read the panel and the
@@ -549,7 +549,7 @@ log on long REST URLs).
 
 ### T2. Moodle side
 
-- [ ] **iMIS REST connection** settings filled in — even with `transport = soap`
+- [ ] **REST connection** settings filled in — even with `transport = soap`
   (before 1.19.7 this heading reads *Direct iMIS REST provider*, and before 1.19.6 its
   help text wrongly says the settings apply only to that provider — they are still
   required for this feature):
@@ -592,7 +592,7 @@ log on long REST URLs).
     has the same name; rename one of them.
 - [ ] Review the dry-run output: each group it would **create**, then one line per
   member it would add or remove —
-  `group 'Tutorial A' (imis:…): would add user 123 (iMIS 20001)` — for new and
+  `group 'Tutorial A' (imis:…): would add user 123 (member 20001)` — for new and
   existing groups alike, plus every skip and guard trip and the summary totals.
   (Per-member lines need 1.19.7; earlier versions show only the totals for groups
   that already exist.)
@@ -629,7 +629,7 @@ log on long REST URLs).
 
 ## R. Registration sync over REST (optional — replaces ATS for enrolment, 1.21.0)
 
-With **Sync provider = Direct iMIS REST**, Moodle reads a registrations IQA itself and
+With **Sync provider = Direct REST API**, Moodle reads a registrations IQA itself and
 enrols or suspends locally, with no ATS involved. This is what lets ATS be retired.
 Until it is proven, keep the iDMS push (§C/§D) as the enrolment mechanism. The
 **Sync provider** setting can also keep the ATS syncs while records are pushed over
@@ -669,7 +669,7 @@ REST.
   login*, *Sync groups on login*): under REST each login sync reads the whole IQA.
   The nightly tasks cover everyone, and the manual sync page handles an urgent
   member. Turn them on later only if *Test connection* shows a small, fast IQA.
-- [ ] **Sync provider = Direct iMIS REST**.
+- [ ] **Sync provider = Direct REST API**.
 
 ### R3. Dry run, then live
 
@@ -756,14 +756,14 @@ run could write to **production iMIS**.
   | Combination | Connection provider | Sync provider | Registrations IQA |
   |---|---|---|---|
   | ATS for everything, REST for tutorial groups (**default**) | ATS SOAP bridge | Same as connection provider | blank |
-  | REST pushes, ATS syncs | Direct iMIS REST | ATS SOAP bridge | blank |
-  | Everything over REST (retire ATS) | Direct iMIS REST | Same as connection provider | set (§R) |
+  | REST pushes, ATS syncs | Direct REST API | ATS SOAP bridge | blank |
+  | Everything over REST (retire ATS) | Direct REST API | Same as connection provider | set (§R) |
 
   Only one system may enrol and suspend: with ATS syncs, leave the *Registrations
   IQA* blank (the REST registration sync stays off).
 - [ ] Only for the all-REST combination: *Registrations IQA* set; *look-back* 7;
   *Registration sync: dry run* **on**.
-- [ ] *iMIS ID format*: **Digits only**.
+- [ ] *Member ID format*: **Digits only**.
 - [ ] *Tutorial group sync*: enabled, *dry run* **on**.
 - [ ] *Course mapping overrides* and *Push course id overrides*: **empty**.
 - [ ] *Test connection* with a known member lists their registrations, with end dates.

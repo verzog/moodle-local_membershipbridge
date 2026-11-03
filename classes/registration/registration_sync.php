@@ -200,7 +200,7 @@ class registration_sync {
                 continue;
             }
             if ($row->isactive === false) {
-                $this->log($report, "registration {$row->key} (iMIS {$row->imisid}): marked inactive by the source; skipped");
+                $this->log($report, "registration {$row->key} (member {$row->imisid}): marked inactive by the source; skipped");
                 $report['rowsskipped']++;
                 continue;
             }
@@ -282,7 +282,7 @@ class registration_sync {
                 continue;
             }
             $courseid = (int)$pair['courseid'];
-            $label    = "course {$courseid}: iMIS {$pair['imisid']}";
+            $label    = "course {$courseid}: member {$pair['imisid']}";
 
             $user = util::find_user_by_imis_id($pair['imisid']);
             if ($user === null) {
@@ -337,7 +337,7 @@ class registration_sync {
                     break;
                 default:
                     $this->log($report, "course {$courseid}: no enabled manual enrolment method; "
-                        . "iMIS {$pair['imisid']} not enrolled");
+                        . "member {$pair['imisid']} not enrolled");
                     $report['rowsskipped']++;
             }
         }
@@ -387,7 +387,7 @@ class registration_sync {
 
             foreach ($members as $userid => $imisid) {
                 if ($this->dryrun) {
-                    $this->log($report, "course {$courseid}: iMIS {$imisid} (user {$userid}): would be suspended");
+                    $this->log($report, "course {$courseid}: member {$imisid} (user {$userid}): would be suspended");
                     $report['suspended']++;
                     continue;
                 }
@@ -400,7 +400,7 @@ class registration_sync {
                     // Rolls back and rethrows, so the task fails and is retried.
                     $transaction->rollback($e);
                 }
-                $this->log($report, "course {$courseid}: iMIS {$imisid} (user {$userid}): suspended");
+                $this->log($report, "course {$courseid}: member {$imisid} (user {$userid}): suspended");
                 $report['suspended']++;
             }
         }
@@ -417,7 +417,7 @@ class registration_sync {
 
         $source = util::imis_id_source();
         if ($source === 'email') {
-            return 'accounts are only created when the iMIS ID source is username or ID number';
+            return 'accounts are only created when the member ID source is username or ID number';
         }
         if ($row->firstname === '' || $row->lastname === '') {
             return 'no first or last name';
@@ -427,14 +427,14 @@ class registration_sync {
         }
         $username = \core_text::strtolower($row->imisid);
         if (clean_param($username, PARAM_USERNAME) !== $username) {
-            return 'the iMIS ID is not a valid username';
+            return 'the member ID is not a valid username';
         }
         if ($DB->record_exists('user', ['username' => $username, 'mnethostid' => $CFG->mnet_localhost_id, 'deleted' => 0])) {
             return "an existing account already uses username {$username}";
         }
         if ($DB->record_exists('user', [$source => $row->imisid, 'deleted' => 0])) {
             // More than one account matches the iMIS ID, so it could not be resolved.
-            return 'more than one account matches the iMIS ID';
+            return 'more than one account matches the member ID';
         }
         return null;
     }

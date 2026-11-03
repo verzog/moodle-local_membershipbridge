@@ -57,7 +57,7 @@ class sync_user_task extends \core\task\adhoc_task {
         }
         // Re-check the iMIS ID format: it may have been set to Digits only after queueing.
         if (!\local_membershipbridge\util::is_valid_imis_id((string)$imisid)) {
-            mtrace('Membership Bridge: ' . $imisid . ' is not in the iMIS ID format; skipping.');
+            mtrace('Membership Bridge: ' . $imisid . ' is not in the member ID format; skipping.');
             return;
         }
 

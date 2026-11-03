@@ -223,13 +223,13 @@ class group_sync {
 
             $user = util::find_user_by_imis_id($row->imisid);
             if ($user === null) {
-                $this->log($report, "course {$courseid}: no unique Moodle account for iMIS id {$row->imisid}; skipped");
+                $this->log($report, "course {$courseid}: no unique Moodle account for member {$row->imisid}; skipped");
                 $report['rowsskipped']++;
                 continue;
             }
             $tutorready = $row->tutor && isset($this->tutorready[$courseid][$user->id]);
             if (!$tutorready && !is_enrolled(context_course::instance($courseid), $user, '', true)) {
-                $this->log($report, "course {$courseid}: user {$user->id} (iMIS {$row->imisid}) not enrolled; skipped");
+                $this->log($report, "course {$courseid}: user {$user->id} (member {$row->imisid}) not enrolled; skipped");
                 $report['rowsskipped']++;
                 continue;
             }
@@ -272,7 +272,7 @@ class group_sync {
         foreach ($want as $courseid => $tutors) {
             $contextid = context_course::instance($courseid)->id;
             foreach ($tutors as $userid => $imisid) {
-                $label = "course {$courseid}: tutor user {$userid} (iMIS {$imisid})";
+                $label = "course {$courseid}: tutor user {$userid} (member {$imisid})";
                 $enrolled = is_enrolled(context_course::instance($courseid), $userid, '', true);
                 if (!$enrolled && !$this->enrol_tutor($courseid, $userid, $label, $report)) {
                     continue;
@@ -524,7 +524,7 @@ class group_sync {
         $this->log(
             $report,
             "group '{$groupname}' ({$idnumber}): would {$action} user {$userid}"
-                . ($imisid !== '' ? " (iMIS {$imisid})" : '')
+                . ($imisid !== '' ? " (member {$imisid})" : '')
         );
     }
 
@@ -575,7 +575,8 @@ class group_sync {
             return (int)$existing->id;
         }
         if ($this->dryrun) {
-            $this->log($report, "course {$courseid}: would create grouping 'Tutorials (iMIS)'");
+            $this->log($report, "course {$courseid}: would create grouping '"
+                . get_string('tutorial_grouping_name', 'local_membershipbridge') . "'");
             return null;
         }
 

@@ -50,7 +50,7 @@ Under _Site administration > Plugins > Local plugins > iMIS Bridge_:
 
 | Setting | Value |
 | --- | --- |
-| Connection provider | **ATS SOAP bridge** (default) for everything in this guide. *Direct iMIS REST* is a separate path (`DIRECT-REST-ARCHITECTURE.md`). |
+| Connection provider | **ATS SOAP bridge** (default) for everything in this guide. *Direct REST API* is a separate path (`DIRECT-REST-ARCHITECTURE.md`). |
 | iMIS WSDL URL | The ATS `wsmoodle.asmx?WSDL` endpoint (production is the `<ats-prod>` host; ask ATS for the staging URL, which is a **different ATS host** — and note the ATS host is not the iMIS/AMS site). Real hostnames live in the internal runbook. |
 | Service endpoint URL (override) | Optional. When set, requests go to this `.asmx` URL (no `?WSDL`) instead of the address embedded in the WSDL. **Set it to your staging endpoint before any write test** if the WSDL's embedded `soap:address` points at a different environment (see the trap below). Blank = use the WSDL's address. |
 | ATS API AuthToken | The `MO-xxxxxx` token issued by ATS. This is the credential for every secured call. |
@@ -104,7 +104,7 @@ Note: `GetBridgeSettings` is unauthenticated. Without a contact ID the test
 confirms connectivity and the WSDL only — it does **not** prove the AuthToken is
 valid. Supply an iMIS contact ID to run an authenticated call.
 
-**Tip:** the **audit log** (_iMIS Bridge_ settings → _Open iMIS audit log_) records
+**Tip:** the **audit log** (_Membership Bridge_ settings → _Open integration audit log_) records
 every call made to iMIS, so after any test you can see the operation, status and
 any fault. To inspect the exact SOAP request/response XML (for example to check
 the field casing and date format), turn on _Capture full request/response_ while

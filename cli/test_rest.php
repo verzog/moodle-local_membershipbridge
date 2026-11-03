@@ -47,14 +47,14 @@ if ($unrecognised) {
 }
 
 if ($options['help']) {
-    cli_writeln("Read-only iMIS REST connection test.
+    cli_writeln("Read-only REST connection test.
 
 Authenticates (OAuth password grant) and, when --imisid is given, reads that
-contact's activity rows. No data is written to iMIS or Moodle.
+member's activity rows. No data is written to the membership system or Moodle.
 
 Options:
-  --imisid=ID   Also read the activity rows for this iMIS contact ID.
-  --seqn=N      With --imisid, print every field of that contact's activity N.
+  --imisid=ID   Also read the activity rows for this member ID.
+  --seqn=N      With --imisid, print every field of that member's activity N.
   -h, --help    Print this help.
 
 Example:
@@ -99,8 +99,8 @@ try {
             }
         }
     } else {
-        cli_writeln("\nFor a read check, re-run with --imisid=<valid iMIS ID> to list that "
-            . "contact's activity rows.");
+        cli_writeln("\nFor a read check, re-run with --imisid=<valid member ID> to list that "
+            . "member's activity rows.");
     }
 
     exit(0);

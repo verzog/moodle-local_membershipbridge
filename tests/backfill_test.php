@@ -118,7 +118,7 @@ final class backfill_test extends \advanced_testcase {
 
         $this->assertSame(1, $report['queued']);
         $this->assertSame(1, $report['skipped']);
-        $this->assertStringContainsString("'anon47' is not in the iMIS ID format", implode("\n", $report['messages']));
+        $this->assertStringContainsString("'anon47' is not in the member ID format", implode("\n", $report['messages']));
         $tasks = \core\task\manager::get_adhoc_tasks(push_activity_task::class);
         $this->assertSame('20016', reset($tasks)->get_custom_data()->imisid);
     }
@@ -136,7 +136,7 @@ final class backfill_test extends \advanced_testcase {
         $this->assertCount(1, $tasks);
 
         set_config('imis_id_format', 'digits', 'local_membershipbridge');
-        $this->expectOutputRegex('/anon47 is not in the iMIS ID format; skipping/');
+        $this->expectOutputRegex('/anon47 is not in the member ID format; skipping/');
         reset($tasks)->execute();
     }
 

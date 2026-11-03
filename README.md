@@ -24,7 +24,7 @@ Key behaviours:
   course (Non-editing teacher by default), enrolling them if needed; unticking it
   removes the role.
 * **Registration sync over REST** (opt-in, 1.21.0): with *Sync provider* set to
-  Direct iMIS REST and a registrations IQA configured, Moodle reads registrations
+  Direct REST API and a registrations IQA configured, Moodle reads registrations
   from iMIS and enrols active registrants (creating missing accounts) and suspends
   cancelled ones itself, with no ATS involved. A dry run is on by default. The
   *Sync provider* setting can also keep the ATS syncs while records go over REST.
@@ -89,10 +89,10 @@ Local plugins > Membership Bridge_:
 > enabled, so saving an endpoint first makes the plugin write straight away. See
 > `docs/TESTING.md` §1.
 
-* **Connection provider** — *ATS SOAP bridge* (default) or *Direct iMIS REST*.
+* **Connection provider** — *ATS SOAP bridge* (default) or *Direct REST API*.
 * **Sync provider** — which provider runs the enrolment, cancellation and group
   syncs; blank follows the connection provider.
-* **Registration sync (Direct iMIS REST)** — the registrations IQA, dry run (on by
+* **Registration sync (Direct REST API)** — the registrations IQA, dry run (on by
   default), account creation, cancelled status codes, look-back days (default 7
   after the event ends; a one-member manual sync can override it) and the
   suspension guard.
@@ -107,7 +107,7 @@ Local plugins > Membership Bridge_:
   matches on `idnumber`).
 * **Web service timeout** — how long to wait on iMIS before giving up.
 * **Default credit type** and **Credit value course field** — used by the direct
-  REST provider only, and only when the matching iMIS column settings are filled
+  REST provider only, and only when the matching activity column settings are filled
   in. The ATS SOAP `MoodleUpdate` does not carry credit; iMIS derives it from the
   product.
 * **iMIS REST connection** — base URL (the iMIS site root, no `/api`), service-account
@@ -120,7 +120,7 @@ Local plugins > Membership Bridge_:
   and *Tutor role* used for tutors.
 * **Audit log** — enable/disable logging, set the retention period (days), and
   optionally capture full request/response payloads (off by default) while
-  debugging. Open the log from the *Open iMIS audit log* button.
+  debugging. Open the log from the *Open integration audit log* button.
 
 Scheduled task times (all editable under _Site administration > Server >
 Scheduled tasks_): enrolment sync 02:00, cancellation sync 02:15, group sync
