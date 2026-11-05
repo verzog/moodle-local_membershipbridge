@@ -97,6 +97,9 @@ class push_score_note_task extends \core\task\adhoc_task {
         // course-completion record).
         \local_membershipbridge\provider\manager::instance()->push_module_note($data);
 
+        // Record the export in Moodle's logs as well as the plugin's audit log.
+        \local_membershipbridge\event\record_pushed::trigger_for('scorenote', $data);
+
         mtrace('Membership Bridge: score note pushed for ' . $data->imisid . '.');
     }
 }

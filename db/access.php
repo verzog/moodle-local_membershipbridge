@@ -47,11 +47,14 @@ $capabilities = [
     // Cancel a user's enrolment through the inbound web service: suspend the
     // enrolment and remove their role in the course. The check runs in the course
     // context, so a system-context service role (as the changeover recipe assigns)
-    // satisfies it for every course. It is non-destructive - nothing is unenrolled
-    // or deleted - so it carries no data-loss risk flag, unlike core unenrol.
+    // satisfies it for every course. Nothing is unenrolled or deleted, but it takes
+    // away learners' course access and can remove any role the caller names, so it
+    // carries the data-loss risk flag, as core unenrol does. That shows a warning
+    // to anyone granting it.
     //
     // Granted to no role by default. Assign it to the inbound service-account role.
     'local/membershipbridge:cancelenrolment' => [
+        'riskbitmask'  => RISK_DATALOSS,
         'captype'      => 'write',
         'contextlevel' => CONTEXT_COURSE,
         'archetypes'   => [],

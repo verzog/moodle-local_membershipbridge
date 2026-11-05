@@ -101,7 +101,8 @@ class provider implements
     }
 
     /**
-     * Return the system context when the user has audit-log or score-push rows.
+     * Return the system context when the user has audit-log or score-push rows, or a
+     * queued task that would send their data.
      *
      * @param int $userid The user to search for.
      * @return contextlist The list of contexts containing the user's data.
@@ -113,6 +114,7 @@ class provider implements
         if (
             $DB->record_exists('local_membershipbridge_log', ['userid' => $userid])
                 || $DB->record_exists('local_membershipbridge_scorepush', ['userid' => $userid])
+                || self::queued_tasks([$userid])
         ) {
             $contextlist->add_from_sql(
                 'SELECT id FROM {context} WHERE contextlevel = :level',
@@ -124,7 +126,8 @@ class provider implements
     }
 
     /**
-     * Add the users who have audit-log or score-push rows in the given (system) context.
+     * Add the users who have audit-log or score-push rows, or a queued task that would
+     * send their data, in the given (system) context.
      *
      * @param userlist $userlist The userlist to add users to.
      * @return void
@@ -137,6 +140,7 @@ class provider implements
 
         $userlist->add_from_sql('userid', 'SELECT userid FROM {local_membershipbridge_log} WHERE userid <> 0', []);
         $userlist->add_from_sql('userid', 'SELECT userid FROM {local_membershipbridge_scorepush}', []);
+        $userlist->add_users(array_values(array_unique(self::queued_tasks(null))));
     }
 
     /**
@@ -226,7 +230,7 @@ class provider implements
         if ($context->contextlevel == CONTEXT_SYSTEM) {
             $DB->delete_records('local_membershipbridge_log');
             $DB->delete_records('local_membershipbridge_scorepush');
-            self::delete_queued_score_pushes(null);
+            self::delete_queued_tasks(null);
         }
     }
 
@@ -245,7 +249,7 @@ class provider implements
             if ($context->contextlevel == CONTEXT_SYSTEM) {
                 $DB->delete_records('local_membershipbridge_log', ['userid' => $userid]);
                 $DB->delete_records('local_membershipbridge_scorepush', ['userid' => $userid]);
-                self::delete_queued_score_pushes([(int)$userid]);
+                self::delete_queued_tasks([(int)$userid]);
             }
         }
     }
@@ -272,26 +276,72 @@ class provider implements
         [$insql, $inparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED);
         $DB->delete_records_select('local_membershipbridge_log', "userid {$insql}", $inparams);
         $DB->delete_records_select('local_membershipbridge_scorepush', "userid {$insql}", $inparams);
-        self::delete_queued_score_pushes(array_map('intval', $userids));
+        self::delete_queued_tasks(array_map('intval', $userids));
     }
 
     /**
-     * Delete queued activity score pushes, which carry the learner's member ID and
-     * score in their task data, so an erased learner's score is never sent.
+     * Delete queued tasks that would send a learner's data to the membership system,
+     * so an erased learner's member ID, completions and scores are never sent.
      *
-     * @param int[]|null $userids The learners whose pushes to delete, or null for all.
+     * @param int[]|null $userids The learners whose tasks to delete, or null for all.
      * @return void
      */
-    protected static function delete_queued_score_pushes(?array $userids): void {
+    protected static function delete_queued_tasks(?array $userids): void {
         global $DB;
 
-        $classname = '\\' . \local_membershipbridge\task\push_score_note_task::class;
-        $tasks = $DB->get_records('task_adhoc', ['classname' => $classname], '', 'id, customdata');
+        if ($userids === null) {
+            [$insql, $params] = self::task_class_sql();
+            $DB->delete_records_select('task_adhoc', "classname {$insql}", $params);
+            return;
+        }
+
+        $ids = array_keys(self::queued_tasks($userids));
+        if ($ids) {
+            $DB->delete_records_list('task_adhoc', 'id', $ids);
+        }
+    }
+
+    /**
+     * The plugin's queued tasks that carry a learner's data, with the learner they are for.
+     *
+     * Every task the plugin queues for a learner carries their Moodle user ID. A task
+     * queued before version 2.3.0 may have none: it is found only when erasing everyone.
+     *
+     * @param int[]|null $userids Only tasks for these learners, or null for every learner.
+     * @return int[] Task ID => user ID.
+     */
+    protected static function queued_tasks(?array $userids): array {
+        global $DB;
+
+        [$insql, $params] = self::task_class_sql();
+        $found = [];
+        $tasks = $DB->get_recordset_select('task_adhoc', "classname {$insql}", $params, '', 'id, customdata');
         foreach ($tasks as $task) {
             $data = json_decode((string)$task->customdata);
-            if ($userids === null || in_array((int)($data->userid ?? 0), $userids, true)) {
-                $DB->delete_records('task_adhoc', ['id' => $task->id]);
+            $userid = is_object($data) ? (int)($data->userid ?? 0) : 0;
+            if ($userid > 0 && ($userids === null || in_array($userid, $userids, true))) {
+                $found[(int)$task->id] = $userid;
             }
         }
+        $tasks->close();
+        return $found;
+    }
+
+    /**
+     * SQL matching the classnames of the plugin's tasks that carry a learner's data.
+     *
+     * @return array [$insql, $params] for a "classname $insql" condition.
+     */
+    protected static function task_class_sql(): array {
+        global $DB;
+
+        $classes = [
+            \local_membershipbridge\task\push_score_note_task::class,
+            \local_membershipbridge\task\push_activity_task::class,
+            \local_membershipbridge\task\push_module_note_task::class,
+            \local_membershipbridge\task\sync_user_task::class,
+        ];
+        $classnames = array_map(fn(string $class): string => '\\' . $class, $classes);
+        return $DB->get_in_or_equal($classnames, SQL_PARAMS_NAMED, 'taskclass');
     }
 }

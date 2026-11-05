@@ -26,6 +26,7 @@ namespace local_membershipbridge\registration;
 
 use local_membershipbridge\enrolment;
 use local_membershipbridge\tutorial\course_resolver;
+use local_membershipbridge\user_lookup;
 use local_membershipbridge\util;
 
 /**
@@ -95,6 +96,9 @@ class registration_sync {
 
     /** @var callable Receives each log line. */
     private $trace;
+
+    /** @var user_lookup Member ID to user lookups for the current run. */
+    private user_lookup $users;
 
     /**
      * Build the engine.
@@ -166,6 +170,10 @@ class registration_sync {
         if ($contactid !== null && empty($pairs)) {
             $this->log($report, "no current registrations for member {$contactid}");
         }
+
+        // Resolve every member in the run with a few queries, not one per registration.
+        $this->users = new user_lookup();
+        $this->users->preload(array_column($pairs, 'imisid'));
 
         if ($mode === self::MODE_ENROL) {
             $this->enrol($pairs, $report);
@@ -284,7 +292,7 @@ class registration_sync {
             $courseid = (int)$pair['courseid'];
             $label    = "course {$courseid}: member {$pair['imisid']}";
 
-            $user = util::find_user_by_imis_id($pair['imisid']);
+            $user = $this->users->find($pair['imisid']);
             if ($user === null) {
                 if (!$this->createusers) {
                     $this->log($report, "{$label}: no Moodle account (account creation is off); not enrolled");
@@ -309,6 +317,8 @@ class registration_sync {
                 }
                 try {
                     $userid = $this->create_account($pair['row']);
+                    // The member now has an account: look it up afresh for their other courses.
+                    $this->users->forget($pair['imisid']);
                 } catch (\Throwable $e) {
                     // One bad record must not stop every later registrant being processed.
                     $this->log($report, "{$label}: account creation failed ({$e->getMessage()}); not enrolled");
@@ -363,7 +373,7 @@ class registration_sync {
             if ($pair['active'] || $pair['unknown'] || !$pair['cancelled']) {
                 continue;
             }
-            $user = util::find_user_by_imis_id($pair['imisid']);
+            $user = $this->users->find($pair['imisid']);
             if ($user === null) {
                 continue;
             }
@@ -422,10 +432,18 @@ class registration_sync {
         if ($row->firstname === '' || $row->lastname === '') {
             return 'no first or last name';
         }
-        if ($row->email === '' || !validate_email($row->email)) {
+        // The names come from the external system: refuse markup rather than store it.
+        if (
+            clean_param($row->firstname, PARAM_NOTAGS) !== $row->firstname
+            || clean_param($row->lastname, PARAM_NOTAGS) !== $row->lastname
+        ) {
+            return 'the first or last name contains markup';
+        }
+        if ($row->email === '' || !validate_email($row->email) || clean_param($row->email, PARAM_EMAIL) !== $row->email) {
             return 'no valid email address';
         }
         $username = \core_text::strtolower($row->imisid);
+        // A valid username has no markup, so this also keeps markup out of the ID number.
         if (clean_param($username, PARAM_USERNAME) !== $username) {
             return 'the member ID is not a valid username';
         }
@@ -451,12 +469,14 @@ class registration_sync {
         global $CFG;
         require_once($CFG->dirroot . '/user/lib.php');
 
+        // The values come from the external system. cannot_create() has already refused
+        // any that cleaning would change; clean them again here as a second line of defence.
         $user = (object)[
-            'username'   => \core_text::strtolower($row->imisid),
-            'idnumber'   => $row->imisid,
-            'firstname'  => $row->firstname,
-            'lastname'   => $row->lastname,
-            'email'      => $row->email,
+            'username'   => clean_param(\core_text::strtolower($row->imisid), PARAM_USERNAME),
+            'idnumber'   => clean_param($row->imisid, PARAM_NOTAGS),
+            'firstname'  => clean_param($row->firstname, PARAM_NOTAGS),
+            'lastname'   => clean_param($row->lastname, PARAM_NOTAGS),
+            'email'      => clean_param($row->email, PARAM_EMAIL),
             'auth'       => is_enabled_auth('saml2') ? 'saml2' : 'manual',
             'confirmed'  => 1,
             'mnethostid' => $CFG->mnet_localhost_id,
