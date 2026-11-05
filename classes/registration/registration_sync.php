@@ -192,7 +192,7 @@ class registration_sync {
      * @return array key => ['imisid', 'courseid', 'active', 'cancelled', 'unknown' (bools), 'row', 'keys' => string[]]
      */
     private function build_pairs(array $rows, ?string $contactid, array &$report): array {
-        $cutoff   = ($this->lookbackdays > 0) ? $this->now - $this->lookbackdays * DAYSECS : null;
+        $cutoff   = ($this->lookbackdays > 0) ? util::days_before($this->lookbackdays, $this->now) : null;
         $unmapped = [];
         $unknown  = [];
         $pairs    = [];

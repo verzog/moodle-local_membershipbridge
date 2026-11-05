@@ -4,6 +4,13 @@ All notable changes to the iMIS Bridge plugin (`local_imisbridge`) are documente
 in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- The registration sync's look-back window and the audit-log retention count
+  calendar days in the site's timezone, instead of multiples of 24 hours, so a
+  span across a daylight saving change no longer ends an hour off.
+
 ## [2.3.0] - 2026-11-05
 
 Fixes from the Catalyst security and performance audit of 2.2.1 (17 findings: 3

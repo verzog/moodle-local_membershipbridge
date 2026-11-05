@@ -147,4 +147,24 @@ final class util_test extends \advanced_testcase {
         set_config('imis_id_source', 'email', 'local_membershipbridge');
         $this->assertSame('a@example.com', util::get_imis_id($anon), 'digits rule does not apply to email');
     }
+
+    /**
+     * days_before() counts calendar days in the server timezone, so a span across the
+     * start of daylight saving keeps the same clock time (one hour less than 7 x DAYSECS).
+     *
+     * @return void
+     */
+    public function test_days_before_crosses_daylight_saving(): void {
+        $this->resetAfterTest();
+        $this->setTimezone('Australia/Sydney');
+        $sydney = new \DateTimeZone('Australia/Sydney');
+
+        // Daylight saving started in Sydney on Sunday 4 October 2026.
+        $from     = (new \DateTime('2026-10-10 12:00', $sydney))->getTimestamp();
+        $expected = (new \DateTime('2026-10-03 12:00', $sydney))->getTimestamp();
+
+        $this->assertSame($expected, util::days_before(7, $from));
+        $this->assertSame(7 * DAYSECS - HOURSECS, $from - util::days_before(7, $from));
+        $this->assertSame($from, util::days_before(0, $from));
+    }
 }

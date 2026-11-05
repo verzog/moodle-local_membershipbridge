@@ -236,4 +236,26 @@ class util {
         $class = provider\manager::active_provider_class();
         return $class::is_configured();
     }
+
+    /**
+     * The same clock time a number of calendar days before a given time, in the
+     * server's timezone.
+     *
+     * Counts calendar days rather than multiples of DAYSECS, so a span that crosses a
+     * daylight saving change (Australia/Sydney, say) still lands on the same time of
+     * day, not an hour off.
+     *
+     * @param int $days The number of days back; 0 or less returns $from unchanged.
+     * @param int $from The time to count back from (Unix).
+     * @return int The earlier time (Unix).
+     */
+    public static function days_before(int $days, int $from): int {
+        if ($days <= 0) {
+            return $from;
+        }
+        return (new \DateTimeImmutable('@' . $from))
+            ->setTimezone(\core_date::get_server_timezone_object())
+            ->modify("-{$days} days")
+            ->getTimestamp();
+    }
 }
