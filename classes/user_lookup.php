@@ -32,8 +32,8 @@ namespace local_membershipbridge;
  *
  * {@see preload()} looks up a whole feed's member IDs in a few queries rather than
  * one per row, and {@see find()} answers from those results, so a member who
- * appears on many rows costs nothing extra. An ID that was not preloaded falls back
- * to a single lookup, which is then remembered too.
+ * appears on many rows costs nothing extra. An ID the preload could not answer
+ * with certainty falls back to a single lookup, which is then remembered too.
  *
  * Use one instance per run, as answers are kept for its lifetime. Call
  * {@see forget()} after creating an account for a member ID, so the next lookup
@@ -53,11 +53,13 @@ class user_lookup {
     /**
      * Look up many member IDs at once, ahead of the calls to {@see find()}.
      *
-     * Values are matched in PHP exactly as given. On a database whose comparison
-     * ignores case or accents, the query can also return users whose value only
-     * folds to one of the IDs. Then exact matching in PHP could disagree with what
-     * the per-row query would find, so that chunk is not remembered and each of its
-     * IDs is looked up singly instead, keeping the behaviour identical.
+     * Users are grouped by their exact stored value. A database whose comparison
+     * ignores case or accents can treat two different values (`cafe` and `café`) as
+     * equal, so the single-row lookup would see both users and find the ID ambiguous.
+     * To keep the answers identical, the database itself is asked which of the
+     * returned users it treats as equal, and every ID touched by such a pair is left
+     * to the single-row lookup. IDs with no exact match are not remembered either, as
+     * a folded match is possible.
      *
      * @param string[] $imisids The member IDs.
      * @return void
@@ -80,13 +82,6 @@ class user_lookup {
         $field = util::imis_id_source();
         foreach (array_chunk(array_keys($wanted), self::CHUNK) as $chunk) {
             $chunk = array_map('strval', $chunk);
-            // Two IDs that differ only in case could match each other's users on a
-            // case-insensitive database: leave such a chunk to the single lookups.
-            $folded = array_map(fn(string $id): string => \core_text::strtolower($id), $chunk);
-            if (count(array_unique($folded)) !== count($chunk)) {
-                continue;
-            }
-
             [$insql, $params] = $DB->get_in_or_equal($chunk, SQL_PARAMS_NAMED, 'mid');
             $select = "{$field} {$insql} AND deleted = 0";
             if ($field === 'username') {
@@ -94,29 +89,56 @@ class user_lookup {
                 $params['mnethostid'] = $CFG->mnet_localhost_id;
             }
 
-            $inchunk = array_flip($chunk);
             $byvalue = [];
-            $exact = true;
+            $ids = [];
             $records = $DB->get_recordset_select('user', $select, $params);
             foreach ($records as $user) {
-                $value = (string)$user->{$field};
-                if (!isset($inchunk[$value])) {
-                    // Matched by case or accent folding only: exact matching would differ.
-                    $exact = false;
-                    break;
-                }
-                $byvalue[$value][] = $user;
+                $byvalue[(string)$user->{$field}][] = $user;
+                $ids[] = (int)$user->id;
             }
             $records->close();
-            if (!$exact) {
-                continue;
-            }
+
+            $uncertain = (count($byvalue) > 1) ? $this->equal_but_different($field, $ids) : [];
 
             foreach ($chunk as $imisid) {
                 $matches = $byvalue[$imisid] ?? [];
+                if (!$matches || isset($uncertain[$imisid])) {
+                    // Left to the single-row lookup, which uses the database's own comparison.
+                    continue;
+                }
                 $this->users[$imisid] = (count($matches) === 1) ? reset($matches) : null;
             }
         }
+    }
+
+    /**
+     * The stored values, among the given users, that the database treats as equal to
+     * a different stored value (by case or accent folding in its collation).
+     *
+     * @param string $field The source field (from the allow-list).
+     * @param int[]  $ids   The user IDs to compare.
+     * @return array Value => true.
+     */
+    private function equal_but_different(string $field, array $ids): array {
+        global $DB;
+
+        [$ainsql, $aparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED, 'ua');
+        [$binsql, $bparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED, 'ub');
+        $sql = "SELECT a.id AS aid, b.id AS bid, a.{$field} AS avalue, b.{$field} AS bvalue
+                  FROM {user} a
+                  JOIN {user} b ON b.{$field} = a.{$field} AND b.id > a.id
+                 WHERE a.id {$ainsql} AND b.id {$binsql}";
+
+        $uncertain = [];
+        $pairs = $DB->get_recordset_sql($sql, $aparams + $bparams);
+        foreach ($pairs as $pair) {
+            if ((string)$pair->avalue !== (string)$pair->bvalue) {
+                $uncertain[(string)$pair->avalue] = true;
+                $uncertain[(string)$pair->bvalue] = true;
+            }
+        }
+        $pairs->close();
+        return $uncertain;
     }
 
     /**

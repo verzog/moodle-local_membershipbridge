@@ -61,17 +61,48 @@ final class user_lookup_test extends \advanced_testcase {
         $lookup = new user_lookup();
         $lookup->preload(['30001', ' 30002 ', '30003', '30004', '']);
 
-        // Answered from the preload: no further queries.
+        // IDs with exact matches are answered from the preload, with no further queries.
         $reads = $DB->perf_get_reads();
         $this->assertSame((int)$one->id, (int)$lookup->find('30001')->id);
         $this->assertNull($lookup->find('30002'), 'two accounts share the ID, so it is ambiguous');
-        $this->assertNull($lookup->find('30003'), 'a deleted account does not count');
-        $this->assertNull($lookup->find('30004'));
         $this->assertNull($lookup->find(''));
         $this->assertSame($reads, $DB->perf_get_reads());
 
+        // IDs with no exact match fall back to the single-row lookup.
+        $this->assertNull($lookup->find('30003'), 'a deleted account does not count');
+        $this->assertNull($lookup->find('30004'));
+
         foreach (['30001', '30002', '30003', '30004'] as $imisid) {
             $this->assertEquals(util::find_user_by_imis_id($imisid), $lookup->find($imisid), $imisid);
+        }
+    }
+
+    /**
+     * Values that differ only in case or accents get the same answer as the single-row
+     * lookup, whichever way the database's collation compares them: ambiguous where it
+     * treats them as equal, distinct where it does not.
+     *
+     * @return void
+     */
+    public function test_preload_follows_database_collation(): void {
+        $gen = $this->getDataGenerator();
+        $gen->create_user(['idnumber' => 'cafe']);
+        $gen->create_user(['idnumber' => 'café']);
+        $gen->create_user(['idnumber' => 'abc']);
+        $gen->create_user(['idnumber' => 'ABC']);
+        $gen->create_user(['idnumber' => 'Solo']);
+
+        $ids = ['cafe', 'café', 'abc', 'ABC', 'solo', 'Solo'];
+        $lookup = new user_lookup();
+        $lookup->preload($ids);
+
+        foreach ($ids as $imisid) {
+            $expected = util::find_user_by_imis_id($imisid);
+            $actual = $lookup->find($imisid);
+            $this->assertSame($expected === null, $actual === null, $imisid);
+            if ($expected !== null) {
+                $this->assertSame((int)$expected->id, (int)$actual->id, $imisid);
+            }
         }
     }
 
