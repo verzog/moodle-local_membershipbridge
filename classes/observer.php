@@ -72,7 +72,8 @@ class observer {
         }
 
         $task = new task\sync_user_task();
-        $task->set_custom_data(['imisid' => $imisid]);
+        // The Moodle user ID lets a privacy erasure find and delete this queued task.
+        $task->set_custom_data(['imisid' => $imisid, 'userid' => (int)$user->id]);
 
         // Collapse repeat logins into a single queued sync.
         \core\task\manager::queue_adhoc_task($task, true);
@@ -118,7 +119,9 @@ class observer {
             $data->completiondate,
             $data->grantdate,
             $data->status,
-            $data->score
+            $data->score,
+            (int)$user->id,
+            (int)$course->id
         );
     }
 
@@ -154,6 +157,8 @@ class observer {
             'grantdate'      => $today,
             'status'         => 'COMPLETE',
             'score'          => self::course_score((int)$course->id, $userid),
+            'userid'         => $userid,
+            'courseid'       => (int)$course->id,
         ];
     }
 
@@ -215,6 +220,8 @@ class observer {
             'status'    => $status,
             'score'     => $score,
             'date'      => date('Y-m-d'),
+            'userid'    => $userid,
+            'courseid'  => (int)$cm->course,
         ];
     }
 
@@ -290,7 +297,9 @@ class observer {
             $finish,
             $finish,
             $status,
-            $score
+            $score,
+            (int)$attempt->userid,
+            (int)$course->id
         );
     }
 
@@ -367,6 +376,8 @@ class observer {
             'status'    => $status,
             'score'     => $score,
             'date'      => date('Y-m-d'),
+            'userid'    => (int)$user->id,
+            'courseid'  => (int)$cm->course,
         ]);
         \core\task\manager::queue_adhoc_task($task);
     }
@@ -442,9 +453,11 @@ class observer {
      */
     public static function queue_score_push(int $userid, string $imisid, \stdClass $cm, \grade_item $item, int $gradeid): bool {
         // Serialise claims for this learner and grade item, so concurrent grading
-        // events cannot interleave their read-then-write of the tracking row.
+        // events cannot interleave their read-then-write of the tracking row. This runs
+        // inside the request that saves the grade, so wait only briefly: the lock guards
+        // a single row update, and a grader is never held up for long.
         $lock = \core\lock\lock_config::get_lock_factory('local_membershipbridge_scorepush')
-            ->get_lock($userid . '_' . $item->id, 10);
+            ->get_lock($userid . '_' . $item->id, 2);
         if (!$lock) {
             debugging('local_membershipbridge: could not lock the score push for user ' . $userid
                 . ' and grade item ' . $item->id . '; skipped', DEBUG_DEVELOPER);
@@ -502,6 +515,7 @@ class observer {
             'notekind'  => 'score',
             'imisid'    => $imisid,
             'userid'    => $userid,
+            'courseid'  => (int)$cm->course,
             'itemid'    => (int)$item->id,
             'coursenum' => util::push_course_number((int)$cm->course),
             'cmid'      => (int)$cm->id,
@@ -661,6 +675,8 @@ class observer {
      * @param string $grantdate      Date credit hours were granted (Y-m-d).
      * @param string $status         Pass or Fail.
      * @param float  $score          Last test score.
+     * @param int    $userid         The Moodle user ID (lets a privacy erasure find the task).
+     * @param int    $courseid       The Moodle course ID (for the record_pushed event).
      * @return void
      */
     private static function queue_activity_push(
@@ -672,7 +688,9 @@ class observer {
         string $completiondate,
         string $grantdate,
         string $status,
-        float $score
+        float $score,
+        int $userid,
+        int $courseid
     ): void {
         $credittype = get_config('local_membershipbridge', 'credit_type');
         if (empty($credittype)) {
@@ -691,6 +709,8 @@ class observer {
             'grantdate'      => $grantdate,
             'status'         => $status,
             'score'          => $score,
+            'userid'         => $userid,
+            'courseid'       => $courseid,
         ]);
         \core\task\manager::queue_adhoc_task($task);
     }

@@ -52,6 +52,9 @@ class backfill {
     /** @var callable Receives each log line. */
     private $trace;
 
+    /** @var array Loaded user records by user ID; false for a deleted or missing user. */
+    private array $users = [];
+
     /**
      * Build the back-fill for one course.
      *
@@ -94,6 +97,7 @@ class backfill {
             'timecompleted, id',
             'id, userid, timecompleted, timestarted, timeenrolled'
         );
+        $this->load_users(array_column($rows, 'userid'));
         foreach ($rows as $row) {
             $imisid = $this->imis_id((int)$row->userid, $report);
             if ($imisid === null) {
@@ -125,6 +129,7 @@ class backfill {
                 $data->coursenum
             ));
         }
+        $this->record_event('completions', $report);
         return $report;
     }
 
@@ -167,6 +172,14 @@ class backfill {
                 'id',
                 'id, userid, finalgrade'
             );
+            $this->load_users(array_column($grades, 'userid'));
+            // A dry run compares with the scores last sent, loaded once per grade item.
+            $sent = $this->execute ? [] : $DB->get_records(
+                'local_membershipbridge_scorepush',
+                ['itemid' => $item->id],
+                '',
+                'userid, finalgrade'
+            );
             foreach ($grades as $grade) {
                 $imisid = $this->imis_id((int)$grade->userid, $report);
                 if ($imisid === null) {
@@ -184,7 +197,7 @@ class backfill {
 
                 $pending = $this->execute
                     ? observer::queue_score_push((int)$grade->userid, $imisid, $cm, $item, (int)$grade->id)
-                    : self::score_unsent((int)$grade->userid, (int)$item->id, (float)$grade->finalgrade);
+                    : self::score_unsent($sent[(int)$grade->userid] ?? null, (float)$grade->finalgrade);
                 if ($pending) {
                     $report['queued']++;
                     $this->log($report, $label . ($this->execute ? ' queued' : ' would queue'));
@@ -194,6 +207,7 @@ class backfill {
                 }
             }
         }
+        $this->record_event('scores', $report);
         return $report;
     }
 
@@ -201,14 +215,11 @@ class backfill {
      * Whether a score differs from the one last sent for this learner and grade item
      * (read-only; the same test the live claim applies).
      *
-     * @param int   $userid     The Moodle user ID.
-     * @param int   $itemid     The grade item ID.
-     * @param float $finalgrade The current grade.
+     * @param \stdClass|null $record     The learner's tracking row for the grade item, or null for none.
+     * @param float          $finalgrade The current grade.
      * @return bool
      */
-    private static function score_unsent(int $userid, int $itemid, float $finalgrade): bool {
-        global $DB;
-        $record = $DB->get_record('local_membershipbridge_scorepush', ['userid' => $userid, 'itemid' => $itemid]);
+    private static function score_unsent(?\stdClass $record, float $finalgrade): bool {
         return !$record || $record->finalgrade === null || grade_floats_different((float)$record->finalgrade, $finalgrade);
     }
 
@@ -220,8 +231,10 @@ class backfill {
      * @return string|null
      */
     private function imis_id(int $userid, array &$report): ?string {
-        global $DB;
-        $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], 'id, username, idnumber, email');
+        if (!array_key_exists($userid, $this->users)) {
+            $this->load_users([$userid]);
+        }
+        $user = $this->users[$userid] ?: null;
         $raw = $user ? trim((string)($user->{util::imis_id_source()} ?? '')) : '';
         $imisid = $user ? util::get_imis_id($user) : '';
         if ($this->member !== null && strcasecmp($imisid, $this->member) !== 0) {
@@ -234,6 +247,43 @@ class backfill {
             return null;
         }
         return $imisid;
+    }
+
+    /**
+     * Load the user records for many user IDs in one query per chunk, rather than one
+     * per row. Deleted and missing users are remembered as false.
+     *
+     * @param array $userids The user IDs.
+     * @return void
+     */
+    private function load_users(array $userids): void {
+        global $DB;
+
+        $userids = array_diff(array_unique(array_map('intval', $userids)), array_keys($this->users));
+        foreach (array_chunk($userids, 1000) as $chunk) {
+            [$insql, $params] = $DB->get_in_or_equal($chunk, SQL_PARAMS_NAMED);
+            $found = $DB->get_records_select('user', "id {$insql} AND deleted = 0", $params, '', 'id, username, idnumber, email');
+            foreach ($chunk as $userid) {
+                $this->users[$userid] = $found[$userid] ?? false;
+            }
+        }
+    }
+
+    /**
+     * Record a real (not dry) back-fill run in Moodle's logs.
+     *
+     * @param string $type   completions or scores.
+     * @param array  $report The finished report.
+     * @return void
+     */
+    private function record_event(string $type, array $report): void {
+        if (!$this->execute || $report['aborted']) {
+            return;
+        }
+        event\backfill_queued::create([
+            'context' => \context_course::instance((int)$this->course->id),
+            'other'   => ['type' => $type, 'queued' => (int)$report['queued']],
+        ])->trigger();
     }
 
     /**

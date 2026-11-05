@@ -21,6 +21,7 @@
  * @copyright  2024 Vernon Spain
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 $string['auditlog'] = 'Integration audit log';
 $string['auditlog_desc'] = 'Records each call made to the membership system so you can see what was sent and whether it was accepted.';
 $string['autosynccontrols'] = 'Automatic sync controls';
@@ -45,6 +46,9 @@ $string['credit_type_desc'] = 'Direct REST API only: the credit type (for exampl
 $string['endpoint_from_wsdl'] = 'Requests are sent to the service address embedded in the WSDL: {$a}. Verify this matches your intended environment (staging vs production) before running any write.';
 $string['endpoint_from_wsdl_unknown'] = 'Requests are sent to the service address embedded in the WSDL (could not read it automatically - open the WSDL and check its <soap:address location>). Verify it matches your intended environment before running any write.';
 $string['endpoint_override_active'] = 'Requests are sent to the ENDPOINT OVERRIDE: {$a} (not the address embedded in the WSDL).';
+$string['eventbackfillqueued'] = 'Results back-filled to the membership system';
+$string['eventmanualsyncrun'] = 'Manual membership sync run';
+$string['eventrecordpushed'] = 'Result sent to the membership system';
 $string['filtercontactid'] = 'Optional: filter by member ID';
 $string['forcontact'] = 'member {$a}';
 $string['imis_api_auth_token'] = 'ATS API AuthToken';

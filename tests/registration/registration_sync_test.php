@@ -221,6 +221,80 @@ final class registration_sync_test extends \advanced_testcase {
     }
 
     /**
+     * A registrant whose name from the external system contains markup gets no account,
+     * rather than having the markup stored on their profile.
+     *
+     * @return void
+     */
+    public function test_no_account_for_name_with_markup(): void {
+        global $DB;
+        $row = new registration_row(
+            '20041',
+            'ATS_BRIDGE',
+            '',
+            '2041.00-20041',
+            true,
+            null,
+            '<b>First</b>',
+            'Last',
+            'member20041@example.com'
+        );
+
+        $report = $this->engine([$row])->run(registration_sync::MODE_ENROL);
+
+        $this->assertSame(0, $report['accountscreated']);
+        $this->assertSame(1, $report['rowsskipped']);
+        $this->assertFalse($DB->record_exists('user', ['idnumber' => '20041']));
+    }
+
+    /**
+     * A member registered for two courses is resolved once, and an account created for
+     * the first is found again for the second rather than created twice.
+     *
+     * @return void
+     */
+    public function test_account_created_once_for_two_registrations(): void {
+        global $DB;
+        $second = $this->getDataGenerator()->create_course();
+        $rows = [$this->row('20042'), $this->row('20042')];
+        $rows[1]->eventcode = 'ATS_BRIDGE_2';
+        $engine = $this->engine($rows);
+        // Map the second event code to the second course.
+        $resolver = new class ((int)$this->course->id, (int)$second->id) implements course_resolver {
+            /** @var int[] Event code => course id. */
+            private array $map;
+
+            /**
+             * Store the two mapped courses.
+             *
+             * @param int $first  The course ATS_BRIDGE maps to.
+             * @param int $second The course ATS_BRIDGE_2 maps to.
+             */
+            public function __construct(int $first, int $second) {
+                $this->map = ['ATS_BRIDGE' => $first, 'ATS_BRIDGE_2' => $second];
+            }
+
+            /**
+             * Map the two event codes; anything else is unmapped.
+             *
+             * @param string $code The event code.
+             * @return int|null
+             */
+            public function resolve_courseid(string $code): ?int {
+                return $this->map[$code] ?? null;
+            }
+        };
+        $property = new \ReflectionProperty($engine, 'resolver');
+        $property->setValue($engine, $resolver);
+
+        $report = $engine->run(registration_sync::MODE_ENROL);
+
+        $this->assertSame(1, $report['accountscreated']);
+        $this->assertSame(2, $report['enrolled']);
+        $this->assertSame(1, $DB->count_records('user', ['idnumber' => '20042', 'deleted' => 0]));
+    }
+
+    /**
      * With account creation off, a registrant with no account is skipped.
      *
      * @return void

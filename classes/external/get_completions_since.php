@@ -158,7 +158,21 @@ class get_completions_since extends external_api {
 
         $records     = [];
         $nextafterid = $afterid;
-        $gradeitems  = [];
+
+        // Load the page's course-total grade items in one query, rather than one per
+        // course, for letter formatting (grade letters can be overridden per course).
+        $gradeitems = [];
+        $gradeitemids = [];
+        foreach ($rows as $row) {
+            if ($row->gradeitemid !== null) {
+                $gradeitemids[(int)$row->gradeitemid] = true;
+            }
+        }
+        if ($gradeitemids) {
+            foreach ($DB->get_records_list('grade_items', 'id', array_keys($gradeitemids)) as $record) {
+                $gradeitems[(int)$record->id] = new \grade_item($record, false);
+            }
+        }
 
         foreach ($rows as $row) {
             $nextafterid = (int)$row->ccid;
@@ -177,12 +191,7 @@ class get_completions_since extends external_api {
                     $percentage = round((($graderaw - $grademin) / ($grademax - $grademin)) * 100, 2);
                 }
 
-                // Reuse one grade_item per course for letter formatting (grade
-                // letters can be overridden per course context).
-                if (!array_key_exists((int)$row->courseid, $gradeitems)) {
-                    $gradeitems[(int)$row->courseid] = \grade_item::fetch(['id' => (int)$row->gradeitemid]);
-                }
-                $gradeitem = $gradeitems[(int)$row->courseid];
+                $gradeitem = $gradeitems[(int)$row->gradeitemid] ?? null;
                 if ($gradeitem) {
                     $formatted = grade_format_gradevalue($graderaw, $gradeitem, true, GRADE_DISPLAY_TYPE_LETTER);
                     $letter = ($formatted === '' || $formatted === '-') ? null : $formatted;

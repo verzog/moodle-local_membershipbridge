@@ -80,9 +80,14 @@ class push_activity_task extends \core\task\adhoc_task {
         $provider = \local_membershipbridge\provider\manager::instance();
         if (($data->toggle ?? '') === 'push_completions') {
             $provider->push_completion($data);
+            $operation = 'completion';
         } else {
             $provider->push_score($data);
+            $operation = 'score';
         }
+
+        // Record the export in Moodle's logs as well as the plugin's audit log.
+        \local_membershipbridge\event\record_pushed::trigger_for($operation, $data);
 
         mtrace('Membership Bridge: activity record pushed for ' . $data->imisid . '.');
     }

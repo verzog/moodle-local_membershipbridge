@@ -29,7 +29,7 @@ require_once($CFG->libdir . '/adminlib.php');
 // page URL/context/title/heading, and makes the page bookmarkable from the admin.
 admin_externalpage_setup('local_membershipbridge_sync');
 
-// Use POST to avoid action/contactid appearing in browser history and server logs.
+// The forms use POST so action/contactid stay out of browser history and server logs.
 $action    = optional_param('action', '', PARAM_ALPHANUMEXT);
 $contactid = optional_param('contactid', '', PARAM_TEXT);
 // One-member override: include registrations outside the REST look-back window.
@@ -110,7 +110,12 @@ $ignorelookback = $ignorelookback && $canoverride;
 // Every provider can push records, so the manual "push completion" test applies to all.
 $canpush       = $providerclass::supports(\local_membershipbridge\provider\provider_interface::CAP_PUSH);
 
-if ($action === 'testconnection' && confirm_sesskey()) {
+// Every action calls the external system or changes data, so one runs only from a
+// POST with a valid sesskey. A GET carrying an action (an old bookmark, or a link
+// with the sesskey in it) just shows the page, so the sesskey never needs to be in a URL.
+$ispost = ($action !== '') && (data_submitted() !== false) && confirm_sesskey();
+
+if ($action === 'testconnection' && $ispost) {
     // Read-only: verify connectivity without writing any data. The provider's
     // diagnostics send the AuthToken when configured; a profile lookup (contact ID)
     // always exercises it.
@@ -122,9 +127,10 @@ if ($action === 'testconnection' && confirm_sesskey()) {
             $testoutput = $provider->diagnostics(!empty($contactid) ? $contactid : null);
         }
     } catch (\Throwable $e) {
-        $error = get_string('syncfailed', 'local_membershipbridge', $e->getMessage());
+        // The message can carry text from the external system's response: escape it.
+        $error = get_string('syncfailed', 'local_membershipbridge', s($e->getMessage()));
     }
-} else if ($action === 'pushcompletion' && confirm_sesskey()) {
+} else if ($action === 'pushcompletion' && $ispost) {
     // Manual test: push one completion record (MoodleUpdate) for a member and course
     // on demand, so the write path can be exercised without completing a course and
     // waiting for cron. Writes a real record to the active external system.
@@ -160,6 +166,7 @@ if ($action === 'testconnection' && confirm_sesskey()) {
 
                 $data = \local_membershipbridge\observer::completion_push_data($pushmember, $course, $userid);
                 \local_membershipbridge\provider\manager::instance()->push_completion($data);
+                \local_membershipbridge\event\record_pushed::trigger_for('completion', $data);
 
                 $message    = get_string('pushdone', 'local_membershipbridge', s($pushmember));
                 $coursedetail = ($userid > 0)
@@ -181,13 +188,13 @@ if ($action === 'testconnection' && confirm_sesskey()) {
             }
         }
     } catch (\Throwable $e) {
-        $error = get_string('syncfailed', 'local_membershipbridge', $e->getMessage());
+        // The message can carry text from the external system's response: escape it.
+        $error = get_string('syncfailed', 'local_membershipbridge', s($e->getMessage()));
     }
-} else if ($action === 'listmodules' && confirm_sesskey()) {
+} else if ($action === 'listmodules' && $ispost) {
     // Read-only: list the course's graded activities so the operator can pick one
     // to push a MOODLENOTE for. Local data only - nothing is sent to iMIS here.
-    global $DB, $CFG;
-    require_once($CFG->libdir . '/gradelib.php');
+    global $DB;
     $notemember = trim(optional_param('pushmemberid', '', PARAM_TEXT));
     $notecourse = optional_param('pushcourseid', 0, PARAM_INT);
     if ($notemember === '' || $notecourse <= 0) {
@@ -197,14 +204,20 @@ if ($action === 'testconnection' && confirm_sesskey()) {
         if (!$course) {
             $error = get_string('pushnocourse', 'local_membershipbridge', $notecourse);
         } else {
+            // Load the course's activity grade items in one query, rather than one per activity.
+            $graded = [];
+            $items = $DB->get_records(
+                'grade_items',
+                ['courseid' => $course->id, 'itemtype' => 'mod'],
+                '',
+                'id, itemmodule, iteminstance'
+            );
+            foreach ($items as $item) {
+                $graded[$item->itemmodule . ':' . $item->iteminstance] = true;
+            }
             $modulechoices = [];
             foreach (get_fast_modinfo($course)->get_cms() as $cm) {
-                $gradeitem = \grade_item::fetch([
-                    'itemtype'     => 'mod',
-                    'itemmodule'   => $cm->modname,
-                    'iteminstance' => $cm->instance,
-                ]);
-                if ($gradeitem) {
+                if (isset($graded[$cm->modname . ':' . $cm->instance])) {
                     $modulechoices[(int)$cm->id] = format_string($cm->name) . ' (' . $cm->modname . ')';
                 }
             }
@@ -214,7 +227,7 @@ if ($action === 'testconnection' && confirm_sesskey()) {
             }
         }
     }
-} else if ($action === 'pushnote' && confirm_sesskey()) {
+} else if ($action === 'pushnote' && $ispost) {
     // Manual test: push one module-completion MOODLENOTE (createActivity) for a
     // member and a chosen course module. Writes a real record to the active system.
     global $DB;
@@ -252,6 +265,7 @@ if ($action === 'testconnection' && confirm_sesskey()) {
                     $error = get_string('pushnotenotgraded', 'local_membershipbridge');
                 } else {
                     \local_membershipbridge\provider\manager::instance()->push_module_note($data);
+                    \local_membershipbridge\event\record_pushed::trigger_for('modulenote', $data);
 
                     $message    = get_string('pushnotedone', 'local_membershipbridge', s($pushmember));
                     $notedetail = ($userid > 0) ? \local_membershipbridge\observer::module_grade_detail($cm, $userid) : null;
@@ -272,9 +286,10 @@ if ($action === 'testconnection' && confirm_sesskey()) {
             }
         }
     } catch (\Throwable $e) {
-        $error = get_string('syncfailed', 'local_membershipbridge', $e->getMessage());
+        // The message can carry text from the external system's response: escape it.
+        $error = get_string('syncfailed', 'local_membershipbridge', s($e->getMessage()));
     }
-} else if ($action && confirm_sesskey()) {
+} else if ($ispost) {
     $cid = !empty($contactid) ? $contactid : null;
 
     if ($cid === null) {
@@ -346,6 +361,10 @@ if ($action === 'testconnection' && confirm_sesskey()) {
                 }
 
                 $message = get_string('syncdone', 'local_membershipbridge', $scope);
+                \local_membershipbridge\event\manual_sync_run::create([
+                    'context' => context_system::instance(),
+                    'other'   => ['action' => $action, 'member' => (string)$cid],
+                ])->trigger();
 
                 $out = '';
                 foreach ($results as $op => $res) {
@@ -354,7 +373,8 @@ if ($action === 'testconnection' && confirm_sesskey()) {
                 $syncoutput = trim($out);
             }
         } catch (\Exception $e) {
-            $error = get_string('syncfailed', 'local_membershipbridge', $e->getMessage());
+            // The message can carry text from the external system's response: escape it.
+            $error = get_string('syncfailed', 'local_membershipbridge', s($e->getMessage()));
         }
     }
 }

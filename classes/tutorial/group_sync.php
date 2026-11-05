@@ -26,6 +26,7 @@ namespace local_membershipbridge\tutorial;
 
 use context_course;
 use local_membershipbridge\enrolment;
+use local_membershipbridge\user_lookup;
 use local_membershipbridge\util;
 
 /**
@@ -103,6 +104,12 @@ class group_sync {
     /** @var array<int,int|null> Per-course grouping id cache. */
     private array $groupingids = [];
 
+    /** @var user_lookup|null Member ID to user lookups for the current run. */
+    private ?user_lookup $users = null;
+
+    /** @var array Actively enrolled users, courseid => userid => true, loaded per course. */
+    private array $enrolled = [];
+
     /**
      * Build the engine with its source, course mapping and run options.
      *
@@ -163,6 +170,12 @@ class group_sync {
             return $report;
         }
 
+        // Resolve every member in the feed with a few queries, not one per row. A member
+        // usually appears on several rows (one per group or course).
+        $this->users = new user_lookup();
+        $this->users->preload(array_map(fn($row): string => (string)$row->imisid, $rows));
+        $this->enrolled = [];
+
         // Tutors first: they are enrolled here if needed, so they can join their groups.
         $this->reconcile_tutors($rows, $report);
 
@@ -210,25 +223,34 @@ class group_sync {
                 $report['rowsskipped']++;
                 continue;
             }
+            // The name comes from the external system: clean it as Moodle's group form
+            // does. The idnumber is still derived from the raw name, so groups the sync
+            // already created keep matching.
+            $name = trim(clean_param($row->groupname, PARAM_TEXT));
+            if ($name === '') {
+                $this->log($report, "code {$row->code}: group name is empty once cleaned; row skipped");
+                $report['rowsskipped']++;
+                continue;
+            }
             $idnumber = self::make_idnumber($row->code, $row->groupname);
             $key = $this->key($courseid, $idnumber);
             if (!isset($desired[$key])) {
                 $desired[$key] = [
                     'courseid' => $courseid,
                     'idnumber' => $idnumber,
-                    'name'     => trim($row->groupname),
+                    'name'     => $name,
                     'members'  => [],
                 ];
             }
 
-            $user = util::find_user_by_imis_id($row->imisid);
+            $user = $this->users->find($row->imisid);
             if ($user === null) {
                 $this->log($report, "course {$courseid}: no unique Moodle account for member {$row->imisid}; skipped");
                 $report['rowsskipped']++;
                 continue;
             }
             $tutorready = $row->tutor && isset($this->tutorready[$courseid][$user->id]);
-            if (!$tutorready && !is_enrolled(context_course::instance($courseid), $user, '', true)) {
+            if (!$tutorready && !$this->is_active_in($courseid, (int)$user->id)) {
                 $this->log($report, "course {$courseid}: user {$user->id} (member {$row->imisid}) not enrolled; skipped");
                 $report['rowsskipped']++;
                 continue;
@@ -263,11 +285,24 @@ class group_sync {
             }
             $anytutor = true;
             $courseid = $this->resolver->resolve_courseid($row->code);
-            $user = ($courseid === null) ? null : util::find_user_by_imis_id($row->imisid);
+            $user = ($courseid === null) ? null : $this->users->find($row->imisid);
             if ($user !== null) {
                 $want[$courseid][(int)$user->id] = $row->imisid;
             }
         }
+
+        // The tutor roles this plugin already gave, loaded once rather than checked per tutor.
+        $given = [];
+        $assignments = $DB->get_recordset(
+            'role_assignments',
+            ['roleid' => $this->tutorroleid, 'component' => self::COMPONENT],
+            '',
+            'id, userid, contextid'
+        );
+        foreach ($assignments as $ra) {
+            $given[(int)$ra->contextid][(int)$ra->userid] = true;
+        }
+        $assignments->close();
 
         foreach ($want as $courseid => $tutors) {
             $contextid = context_course::instance($courseid)->id;
@@ -279,13 +314,7 @@ class group_sync {
                 }
                 $this->tutorready[$courseid][$userid] = true;
 
-                $owned = [
-                    'roleid' => $this->tutorroleid,
-                    'userid' => $userid,
-                    'contextid' => $contextid,
-                    'component' => self::COMPONENT,
-                ];
-                if ($DB->record_exists('role_assignments', $owned)) {
+                if (isset($given[$contextid][$userid])) {
                     continue;
                 }
                 $report['tutorrolesadded']++;
@@ -319,6 +348,25 @@ class group_sync {
                 role_unassign((int)$ra->roleid, (int)$ra->userid, (int)$ra->contextid, self::COMPONENT);
             }
         }
+    }
+
+    /**
+     * Whether a user is actively enrolled in a course, as is_enrolled() with
+     * $onlyactive answers, from one query per course rather than one per row. Call
+     * only after the tutors are enrolled, so the loaded list includes them.
+     *
+     * @param int $courseid The course id.
+     * @param int $userid   The user id.
+     * @return bool
+     */
+    private function is_active_in(int $courseid, int $userid): bool {
+        global $DB;
+
+        if (!isset($this->enrolled[$courseid])) {
+            [$sql, $params] = get_enrolled_sql(context_course::instance($courseid), '', 0, true);
+            $this->enrolled[$courseid] = array_fill_keys(array_map('intval', $DB->get_fieldset_sql($sql, $params)), true);
+        }
+        return isset($this->enrolled[$courseid][$userid]);
     }
 
     /**

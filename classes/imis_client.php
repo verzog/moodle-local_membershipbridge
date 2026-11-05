@@ -457,7 +457,13 @@ class imis_client implements \local_membershipbridge\provider\org_sync_provider 
         $apperror = self::result_error($result);
         if ($apperror !== null) {
             logger::record($operation, $imisid, $productcode, logger::STATUS_ERROR, $this->soap, $apperror);
-            throw new \moodle_exception('soapresulterror', 'local_membershipbridge', '', $operation . ': ' . $apperror);
+            // The audit log keeps the full text. The exception message is shown on admin
+            // pages, so drop any markup and keep it short, as the REST client does.
+            $reason = trim(preg_replace('/\s+/u', ' ', strip_tags($apperror)) ?? '');
+            if (\core_text::strlen($reason) > 300) {
+                $reason = \core_text::substr($reason, 0, 297) . '...';
+            }
+            throw new \moodle_exception('soapresulterror', 'local_membershipbridge', '', $operation . ': ' . $reason);
         }
 
         logger::record($operation, $imisid, $productcode, logger::STATUS_SUCCESS, $this->soap, null);
