@@ -4,18 +4,13 @@ All notable changes to the iMIS Bridge plugin (`local_imisbridge`) are documente
 in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-- The registration sync's look-back window and the audit-log retention count
-  calendar days in the site's timezone, instead of multiples of 24 hours, so a
-  span across a daylight saving change no longer ends an hour off.
-
 ## [2.3.0] - 2026-11-05
 
 Fixes from the Catalyst security and performance audit of 2.2.1 (17 findings: 3
-Medium, 14 Low; none Critical or High). Nothing changes for learners, and no
-setting needs changing.
+Medium, 14 Low; none Critical or High), and a daylight saving fix. Nothing changes
+for learners, and no setting needs changing. Run the upgrade after deploying
+(Site administration > Notifications) so the capability change and the new events
+take effect.
 
 ### Security
 - The manual sync page escapes error text before showing it, so a reply from the
@@ -47,6 +42,11 @@ setting needs changing.
   sync page's activity list look up users, enrolments and grade items in bulk
   rather than once per row.
 - Saving a grade waits at most 2 seconds (was 10) for the score-push lock.
+
+### Fixed
+- The registration sync's look-back window and the audit-log retention count
+  calendar days in the site's timezone, instead of multiples of 24 hours, so a
+  span across a daylight saving change no longer ends an hour off.
 
 ## [2.2.1] - 2026-11-03
 
