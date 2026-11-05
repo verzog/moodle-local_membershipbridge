@@ -217,7 +217,7 @@ class logger {
             return 0;
         }
 
-        $cutoff = time() - ($days * DAYSECS);
+        $cutoff = util::days_before($days, time());
         $count  = $DB->count_records_select('local_membershipbridge_log', 'timecreated < ?', [$cutoff]);
         $DB->delete_records_select('local_membershipbridge_log', 'timecreated < ?', [$cutoff]);
 
