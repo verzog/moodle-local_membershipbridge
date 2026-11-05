@@ -198,4 +198,47 @@ final class provider_test extends \advanced_testcase {
         $this->assertEquals(0, $DB->count_records('local_membershipbridge_scorepush'));
         $this->assertCount(0, \core\task\manager::get_adhoc_tasks(\local_membershipbridge\task\push_score_note_task::class));
     }
+
+    /**
+     * Every queued task that would send a learner's data is found and erased with
+     * them, even when they have no log rows yet, and erasing everyone empties the queue.
+     *
+     * @return void
+     */
+    public function test_queued_tasks_are_covered(): void {
+        $this->resetAfterTest();
+
+        $classes = [
+            \local_membershipbridge\task\push_activity_task::class,
+            \local_membershipbridge\task\push_module_note_task::class,
+            \local_membershipbridge\task\sync_user_task::class,
+        ];
+        $user  = $this->getDataGenerator()->create_user();
+        $other = $this->getDataGenerator()->create_user();
+        foreach ([$user, $other] as $u) {
+            foreach ($classes as $class) {
+                $task = new $class();
+                $task->set_custom_data((object)['userid' => (int)$u->id, 'imisid' => 'm' . $u->id]);
+                \core\task\manager::queue_adhoc_task($task);
+            }
+        }
+
+        $systemcontext = \context_system::instance();
+        $this->assertEquals([$systemcontext->id], provider::get_contexts_for_userid($user->id)->get_contextids());
+        $userlist = new userlist($systemcontext, 'local_membershipbridge');
+        provider::get_users_in_context($userlist);
+        $this->assertEqualsCanonicalizing([$user->id, $other->id], $userlist->get_userids());
+
+        provider::delete_data_for_user(new approved_contextlist($user, 'local_membershipbridge', [$systemcontext->id]));
+        foreach ($classes as $class) {
+            $queued = \core\task\manager::get_adhoc_tasks($class);
+            $this->assertCount(1, $queued, $class);
+            $this->assertEquals($other->id, reset($queued)->get_custom_data()->userid, $class);
+        }
+
+        provider::delete_data_for_all_users_in_context($systemcontext);
+        foreach ($classes as $class) {
+            $this->assertCount(0, \core\task\manager::get_adhoc_tasks($class), $class);
+        }
+    }
 }

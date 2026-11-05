@@ -11,6 +11,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   calendar days in the site's timezone, instead of multiples of 24 hours, so a
   span across a daylight saving change no longer ends an hour off.
 
+## [2.3.0] - 2026-11-05
+
+Fixes from the Catalyst security and performance audit of 2.2.1 (17 findings: 3
+Medium, 14 Low; none Critical or High). Nothing changes for learners, and no
+setting needs changing.
+
+### Security
+- The manual sync page escapes error text before showing it, so a reply from the
+  membership system cannot put markup on the page. The SOAP provider also strips
+  markup from its error messages, as the REST provider already did.
+- The manual sync page runs an action only from a form post (with the session key),
+  never from a link.
+- The *Cancel enrolment* web service capability carries the data-loss risk flag, so
+  Moodle warns anyone who grants it. It removes course access and roles.
+- Privacy erasure now also deletes a learner's queued completion, quiz score, module
+  note and login sync tasks, not only their queued activity score pushes, so nothing
+  is sent for them afterwards. A learner whose only data is a queued task is now
+  found by a privacy request too. Completion, quiz, module note and login tasks
+  queued before this version carry no user ID, so they are only deleted when
+  erasing everyone.
+- Account creation from registrations refuses names or emails that contain
+  markup, and cleans every value it stores. Tutorial group names are
+  cleaned before a group is created.
+
+### Added
+- Moodle events, so these actions appear in the standard logs and reports:
+  *Result sent to the membership system* (each completion, score or note sent, by
+  cron or by the manual push test), *Manual membership sync run* and *Results
+  back-filled to the membership system*.
+
+### Changed
+- Faster on large sites: the sync loops (registration enrolments and
+  cancellations, tutorial groups, back-fill), the completions web service and the
+  sync page's activity list look up users, enrolments and grade items in bulk
+  rather than once per row.
+- Saving a grade waits at most 2 seconds (was 10) for the score-push lock.
+
 ## [2.2.1] - 2026-11-03
 
 Wording only: no change to what the plugin does.
