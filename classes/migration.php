@@ -79,10 +79,9 @@ class migration {
      *     capabilities, group memberships, tasks and service functions.
      */
     public static function from_imisbridge(): array {
-        global $DB;
-
         $report = [];
-        if (!$DB->record_exists('config_plugins', ['plugin' => self::OLD, 'name' => 'version'])) {
+        // The old plugin was installed if it ever recorded a version number.
+        if (get_config(self::OLD, 'version') === false) {
             return $report;
         }
 
@@ -105,14 +104,12 @@ class migration {
      * @return int The number of settings copied.
      */
     private static function copy_settings(): int {
-        global $DB;
-
         $copied = 0;
-        foreach ($DB->get_records('config_plugins', ['plugin' => self::OLD]) as $row) {
-            if ($row->name === 'version' || get_config(self::NEW, $row->name) !== false) {
+        foreach ((array)get_config(self::OLD) as $name => $value) {
+            if ($name === 'version' || get_config(self::NEW, $name) !== false) {
                 continue;
             }
-            set_config($row->name, $row->value, self::NEW);
+            set_config($name, $value, self::NEW);
             $copied++;
         }
         return $copied;
