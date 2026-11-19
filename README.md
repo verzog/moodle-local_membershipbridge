@@ -1,5 +1,10 @@
 # Membership Bridge #
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/membership-bridge-logo-dark.png">
+  <img src="docs/images/membership-bridge-logo.png" alt="Membership Bridge logo" width="400">
+</picture>
+
 Connects Moodle to the iMIS association management system. It sends learners'
 results to iMIS, keeps enrolments in step with iMIS registrations, and mirrors iMIS
 tutorial groups into Moodle course groups.
