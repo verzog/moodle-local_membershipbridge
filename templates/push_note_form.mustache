@@ -1,0 +1,94 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_membershipbridge/push_note_form
+
+    The "Push activity note (test)" forms on the sync page: step 1 lists a course's
+    graded activities, step 2 pushes a note for the one chosen.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * actionurl - The sync page URL the forms post to.
+    * sesskey - The session key.
+    * notememberid - The member ID to show in the field and carry into step 2.
+    * notecourseid - The course ID to show in the field, or empty.
+    * hasmodules - Whether step 2 (a list of graded activities) is shown.
+    * modules - The graded activities to choose from: value (course module ID) and label.
+
+    Example context (json):
+    {
+        "actionurl": "https://example.com/local/membershipbridge/admin/sync.php",
+        "sesskey": "abc123",
+        "notememberid": "20018",
+        "notecourseid": 19,
+        "hasmodules": true,
+        "modules": [
+            {"value": 412, "label": "Case study 1 (assign)"},
+            {"value": 415, "label": "Module quiz (quiz)"}
+        ]
+    }
+}}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">{{#str}} pushnotetest, local_membershipbridge {{/str}}</h5>
+        <p class="text-muted">{{#str}} pushnotetest_help, local_membershipbridge {{/str}}</p>
+        <form method="post" action="{{actionurl}}">
+            <input type="hidden" name="sesskey" value="{{sesskey}}">
+            <div class="form-group">
+                <label for="notememberid">{{#str}} pushmemberid, local_membershipbridge {{/str}}</label>
+                <input type="text" id="notememberid" name="pushmemberid" class="form-control" value="{{notememberid}}"
+                    placeholder="{{#str}} contactidplaceholder, local_membershipbridge {{/str}}">
+            </div>
+            <div class="form-group">
+                <label for="notecourseid">{{#str}} pushcourseid, local_membershipbridge {{/str}}</label>
+                <input type="number" id="notecourseid" name="pushcourseid" class="form-control" min="1" value="{{notecourseid}}">
+                <small class="form-text text-muted">{{#str}} pushcourseidhelp, local_membershipbridge {{/str}}</small>
+            </div>
+            <div class="mt-3">
+                <button type="submit" name="action" value="listmodules" class="btn btn-outline-primary">
+                    {{#str}} pushnotelist, local_membershipbridge {{/str}}
+                </button>
+            </div>
+        </form>
+        {{#hasmodules}}
+        <hr>
+        <form method="post" action="{{actionurl}}">
+            <input type="hidden" name="sesskey" value="{{sesskey}}">
+            <input type="hidden" name="pushmemberid" value="{{notememberid}}">
+            <div class="form-group">
+                <label for="pushcmid">{{#str}} pushnoteactivity, local_membershipbridge {{/str}}</label>
+                <select id="pushcmid" name="pushcmid" class="custom-select">
+                    <option value="">{{#str}} choosedots {{/str}}</option>
+                    {{#modules}}
+                    <option value="{{value}}">{{label}}</option>
+                    {{/modules}}
+                </select>
+            </div>
+            <div class="mt-3">
+                <button type="submit" name="action" value="pushnote" class="btn btn-primary">
+                    {{#str}} pushnote, local_membershipbridge {{/str}}
+                </button>
+            </div>
+        </form>
+        {{/hasmodules}}
+    </div>
+</div>

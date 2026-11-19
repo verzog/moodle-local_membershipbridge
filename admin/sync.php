@@ -218,7 +218,9 @@ if ($action === 'testconnection' && $ispost) {
             $modulechoices = [];
             foreach (get_fast_modinfo($course)->get_cms() as $cm) {
                 if (isset($graded[$cm->modname . ':' . $cm->instance])) {
-                    $modulechoices[(int)$cm->id] = format_string($cm->name) . ' (' . $cm->modname . ')';
+                    // Unescaped: the template escapes it.
+                    $modulechoices[(int)$cm->id] = format_string($cm->name, true, ['escape' => false])
+                        . ' (' . $cm->modname . ')';
                 }
             }
             if (empty($modulechoices)) {
@@ -392,60 +394,16 @@ if ($error) {
     echo $OUTPUT->notification($error, 'notifyproblem');
 }
 
-$syncurl  = new moodle_url('/local/membershipbridge/admin/sync.php');
-$auditurl = new moodle_url('/local/membershipbridge/admin/log.php');
-$logsurl  = new moodle_url('/admin/tasklogs.php');
-$sesskey  = sesskey();
-$cidvalue = s($contactid);
-// The push-completion form keeps its own member-ID value, independent of the
-// order-sync contact filter above, so the two fields don't mirror each other.
-$pushmembervalue = s(optional_param('pushmemberid', '', PARAM_TEXT));
+$syncurl = new moodle_url('/local/membershipbridge/admin/sync.php');
+$sesskey = sesskey();
 
 if ($cansync) {
-    echo html_writer::start_div('card mb-4');
-    echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5', get_string('filtercontactid', 'local_membershipbridge'), ['class' => 'card-title']);
-    echo '<form method="post" action="">';
-    echo '<input type="hidden" name="sesskey" value="' . $sesskey . '">';
-    echo html_writer::start_div('form-group');
-    echo html_writer::tag('label', get_string('contactid', 'local_membershipbridge'), ['for' => 'contactid']);
-    echo '<input type="text" id="contactid" name="contactid" class="form-control"'
-        . ' value="' . $cidvalue . '" placeholder="' . s(get_string('contactidplaceholder', 'local_membershipbridge')) . '">';
-    echo html_writer::tag('small', get_string('contactidhelp', 'local_membershipbridge'), ['class' => 'form-text text-muted']);
-    echo html_writer::end_div();
-    if ($canoverride) {
-        echo html_writer::start_div('form-check mt-2');
-        // Always shown unticked, so an override never carries over to the next sync.
-        echo '<input type="checkbox" id="ignorelookback" name="ignorelookback" value="1" class="form-check-input">';
-        echo html_writer::tag('label', get_string('reg_ignore_lookback', 'local_membershipbridge'), [
-            'for'   => 'ignorelookback',
-            'class' => 'form-check-label',
-        ]);
-        echo html_writer::tag('small', get_string('reg_ignore_lookback_help', 'local_membershipbridge'), [
-            'class' => 'form-text text-muted d-block',
-        ]);
-        echo html_writer::end_div();
-    }
-    echo html_writer::start_div('mt-3 d-flex gap-2 flex-wrap');
-    echo '<button type="submit" name="action" value="enrollments" class="btn btn-primary">'
-        . s(get_string('sync_enrollments', 'local_membershipbridge')) . '</button>';
-    echo '<button type="submit" name="action" value="cancellations" class="btn btn-warning">'
-        . s(get_string('sync_cancellations', 'local_membershipbridge')) . '</button>';
-    echo '<button type="submit" name="action" value="groups" class="btn btn-info">'
-        . s(get_string('sync_groups', 'local_membershipbridge')) . '</button>';
-    echo '<button type="submit" name="action" value="all" class="btn btn-success">'
-        . s(get_string('sync_all', 'local_membershipbridge')) . '</button>';
-    echo '<button type="submit" name="action" value="testconnection" class="btn btn-outline-secondary">'
-        . s(get_string('testconnection', 'local_membershipbridge')) . '</button>';
-    echo html_writer::end_div();
-    echo html_writer::tag(
-        'small',
-        get_string('testconnection_help', 'local_membershipbridge'),
-        ['class' => 'form-text text-muted mt-2']
-    );
-    echo '</form>';
-    echo html_writer::end_div();
-    echo html_writer::end_div();
+    echo $OUTPUT->render_from_template('local_membershipbridge/sync_controls', [
+        'actionurl'   => $syncurl->out(false),
+        'sesskey'     => $sesskey,
+        'contactid'   => $contactid,
+        'canoverride' => $canoverride,
+    ]);
 } else {
     // The active provider receives pushed records but has no manual order/group
     // sync or connection test; say so instead of showing controls that would fail.
@@ -458,136 +416,49 @@ if ($cansync) {
 if ($canpush) {
     // On-demand completion push: fire one MoodleUpdate for a member and course so the
     // write path can be exercised without completing a course and waiting for cron.
-    echo html_writer::start_div('card mb-4');
-    echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5', get_string('pushtest', 'local_membershipbridge'), ['class' => 'card-title']);
-    echo html_writer::tag('p', get_string('pushcompletion_help', 'local_membershipbridge'), ['class' => 'text-muted']);
-    echo '<form method="post" action="">';
-    echo '<input type="hidden" name="sesskey" value="' . $sesskey . '">';
-    echo html_writer::start_div('form-group');
-    echo html_writer::tag('label', get_string('pushmemberid', 'local_membershipbridge'), ['for' => 'pushmemberid']);
-    echo '<input type="text" id="pushmemberid" name="pushmemberid" class="form-control"'
-        . ' value="' . $pushmembervalue . '"'
-        . ' placeholder="' . s(get_string('contactidplaceholder', 'local_membershipbridge')) . '">';
-    echo html_writer::end_div();
-    echo html_writer::start_div('form-group');
-    echo html_writer::tag('label', get_string('pushcourseid', 'local_membershipbridge'), ['for' => 'pushcourseid']);
-    echo '<input type="number" id="pushcourseid" name="pushcourseid" class="form-control" min="1">';
-    echo html_writer::tag('small', get_string('pushcourseidhelp', 'local_membershipbridge'), ['class' => 'form-text text-muted']);
-    echo html_writer::end_div();
-    echo html_writer::start_div('mt-3');
-    echo '<button type="submit" name="action" value="pushcompletion" class="btn btn-primary">'
-        . s(get_string('pushcompletion', 'local_membershipbridge')) . '</button>';
-    echo html_writer::end_div();
-    echo '</form>';
-    echo html_writer::end_div();
-    echo html_writer::end_div();
-}
+    // The form keeps its own member ID, independent of the sync form's member ID.
+    echo $OUTPUT->render_from_template('local_membershipbridge/push_completion_form', [
+        'actionurl'    => $syncurl->out(false),
+        'sesskey'      => $sesskey,
+        'pushmemberid' => optional_param('pushmemberid', '', PARAM_TEXT),
+    ]);
 
-if ($canpush) {
     // On-demand module-note push: pick a real graded activity in a course and fire
     // one createActivity MOODLENOTE, so the supplementary-note path can be verified
     // without a live quiz submission and completion event.
-    echo html_writer::start_div('card mb-4');
-    echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5', get_string('pushnotetest', 'local_membershipbridge'), ['class' => 'card-title']);
-    echo html_writer::tag('p', get_string('pushnotetest_help', 'local_membershipbridge'), ['class' => 'text-muted']);
-
-    // Step 1: member + course, then list the course's graded activities.
-    echo '<form method="post" action="">';
-    echo '<input type="hidden" name="sesskey" value="' . $sesskey . '">';
-    echo html_writer::start_div('form-group');
-    echo html_writer::tag('label', get_string('pushmemberid', 'local_membershipbridge'), ['for' => 'notememberid']);
-    echo '<input type="text" id="notememberid" name="pushmemberid" class="form-control"'
-        . ' value="' . s($notemember) . '" placeholder="' . s(get_string('contactidplaceholder', 'local_membershipbridge')) . '">';
-    echo html_writer::end_div();
-    echo html_writer::start_div('form-group');
-    echo html_writer::tag('label', get_string('pushcourseid', 'local_membershipbridge'), ['for' => 'notecourseid']);
-    echo '<input type="number" id="notecourseid" name="pushcourseid" class="form-control" min="1"'
-        . ' value="' . ($notecourse > 0 ? (int)$notecourse : '') . '">';
-    echo html_writer::tag('small', get_string('pushcourseidhelp', 'local_membershipbridge'), ['class' => 'form-text text-muted']);
-    echo html_writer::end_div();
-    echo html_writer::start_div('mt-3');
-    echo '<button type="submit" name="action" value="listmodules" class="btn btn-outline-primary">'
-        . s(get_string('pushnotelist', 'local_membershipbridge')) . '</button>';
-    echo html_writer::end_div();
-    echo '</form>';
-
-    // Step 2: pick one of the listed graded activities and push its note.
-    if (!empty($modulechoices)) {
-        echo html_writer::empty_tag('hr');
-        echo '<form method="post" action="">';
-        echo '<input type="hidden" name="sesskey" value="' . $sesskey . '">';
-        echo '<input type="hidden" name="pushmemberid" value="' . s($notemember) . '">';
-        echo html_writer::start_div('form-group');
-        echo html_writer::tag('label', get_string('pushnoteactivity', 'local_membershipbridge'), ['for' => 'pushcmid']);
-        echo html_writer::select(
-            $modulechoices,
-            'pushcmid',
-            '',
-            ['' => get_string('choosedots')],
-            ['id' => 'pushcmid', 'class' => 'custom-select']
-        );
-        echo html_writer::end_div();
-        echo html_writer::start_div('mt-3');
-        echo '<button type="submit" name="action" value="pushnote" class="btn btn-primary">'
-            . s(get_string('pushnote', 'local_membershipbridge')) . '</button>';
-        echo html_writer::end_div();
-        echo '</form>';
+    $modules = [];
+    foreach ($modulechoices ?? [] as $cmid => $label) {
+        $modules[] = ['value' => $cmid, 'label' => $label];
     }
-
-    echo html_writer::end_div();
-    echo html_writer::end_div();
+    echo $OUTPUT->render_from_template('local_membershipbridge/push_note_form', [
+        'actionurl'    => $syncurl->out(false),
+        'sesskey'      => $sesskey,
+        'notememberid' => $notemember,
+        'notecourseid' => $notecourse > 0 ? $notecourse : '',
+        'hasmodules'   => !empty($modules),
+        'modules'      => $modules,
+    ]);
 }
 
-if ($testoutput !== '') {
-    echo html_writer::start_div('card mb-4');
-    echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5', get_string('testconnection', 'local_membershipbridge'), ['class' => 'card-title']);
-    echo html_writer::tag('pre', s($testoutput), ['class' => 'bg-light p-3']);
-    echo html_writer::end_div();
-    echo html_writer::end_div();
+// Plain-text results of the action just run.
+$results = [
+    [$testoutput, get_string('testconnection', 'local_membershipbridge'), ''],
+    [$syncoutput, get_string('syncresult', 'local_membershipbridge'), get_string('syncresulthelp', 'local_membershipbridge')],
+    [$noteoutput, get_string('pushnotetest', 'local_membershipbridge'), get_string('syncresulthelp', 'local_membershipbridge')],
+];
+foreach ($results as [$output, $title, $help]) {
+    if ($output !== '') {
+        echo $OUTPUT->render_from_template('local_membershipbridge/result_card', [
+            'title'  => $title,
+            'help'   => $help,
+            'output' => $output,
+        ]);
+    }
 }
 
-if ($syncoutput !== '') {
-    echo html_writer::start_div('card mb-4');
-    echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5', get_string('syncresult', 'local_membershipbridge'), ['class' => 'card-title']);
-    echo html_writer::tag('p', get_string('syncresulthelp', 'local_membershipbridge'), ['class' => 'text-muted']);
-    echo html_writer::tag('pre', s($syncoutput), ['class' => 'bg-light p-3']);
-    echo html_writer::end_div();
-    echo html_writer::end_div();
-}
-
-if ($noteoutput !== '') {
-    echo html_writer::start_div('card mb-4');
-    echo html_writer::start_div('card-body');
-    echo html_writer::tag('h5', get_string('pushnotetest', 'local_membershipbridge'), ['class' => 'card-title']);
-    echo html_writer::tag('p', get_string('syncresulthelp', 'local_membershipbridge'), ['class' => 'text-muted']);
-    echo html_writer::tag('pre', s($noteoutput), ['class' => 'bg-light p-3']);
-    echo html_writer::end_div();
-    echo html_writer::end_div();
-}
-
-echo html_writer::start_div('card');
-echo html_writer::start_div('card-body');
-echo html_writer::tag('h5', get_string('scheduledtaskstatus', 'local_membershipbridge'), ['class' => 'card-title']);
-echo html_writer::tag('p', get_string('scheduledtaskintro', 'local_membershipbridge'));
-echo html_writer::start_tag('ul');
-echo html_writer::tag('li', get_string('schedule_enrollments', 'local_membershipbridge'));
-echo html_writer::tag('li', get_string('schedule_cancellations', 'local_membershipbridge'));
-echo html_writer::tag('li', get_string('schedule_groups', 'local_membershipbridge'));
-echo html_writer::tag('li', get_string('schedule_tutorialgroups', 'local_membershipbridge'));
-echo html_writer::tag('li', get_string('schedule_cleanup', 'local_membershipbridge'));
-echo html_writer::end_tag('ul');
-// Primary link: the iMIS audit log shows what was actually sent to iMIS and the
-// result. The secondary link is Moodle's cron run output for the scheduled tasks.
-echo html_writer::tag('p', get_string('viewlogshelp', 'local_membershipbridge'), ['class' => 'text-muted']);
-echo html_writer::start_div('d-flex gap-2 flex-wrap');
-echo html_writer::link($auditurl, get_string('openlog', 'local_membershipbridge'), ['class' => 'btn btn-primary btn-sm']);
-echo html_writer::link($logsurl, get_string('viewtaskrunlogs', 'local_membershipbridge'), ['class' => 'btn btn-secondary btn-sm']);
-echo html_writer::end_div();
-echo html_writer::end_div();
-echo html_writer::end_div();
+echo $OUTPUT->render_from_template('local_membershipbridge/schedule_card', [
+    'auditurl' => (new moodle_url('/local/membershipbridge/admin/log.php'))->out(false),
+    'logsurl'  => (new moodle_url('/admin/tasklogs.php'))->out(false),
+]);
 
 echo $OUTPUT->footer();

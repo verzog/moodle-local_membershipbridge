@@ -73,7 +73,7 @@ $users   = $userids ? $DB->get_records_list('user', 'id', $userids, '', '*') : [
 
 echo $OUTPUT->header();
 
-// Filter form.
+// Filter options.
 $operations = $DB->get_fieldset_sql('SELECT DISTINCT operation FROM {local_membershipbridge_log} ORDER BY operation');
 $opmenu     = ['' => get_string('log_filter_all', 'local_membershipbridge')];
 foreach ($operations as $op) {
@@ -84,95 +84,50 @@ $statusmenu = [
     \local_membershipbridge\logger::STATUS_SUCCESS  => get_string('status_success', 'local_membershipbridge'),
     \local_membershipbridge\logger::STATUS_ERROR    => get_string('status_error', 'local_membershipbridge'),
 ];
+$options = static function (array $menu, string $current): array {
+    $out = [];
+    foreach ($menu as $value => $label) {
+        $out[] = ['value' => (string)$value, 'label' => $label, 'selected' => ((string)$value === $current)];
+    }
+    return $out;
+};
 
-echo html_writer::start_tag('form', ['method' => 'get', 'action' => $baseurl->out(), 'class' => 'mb-3']);
-echo html_writer::start_div('form-inline d-flex gap-2 flex-wrap align-items-end');
-echo html_writer::div(
-    html_writer::tag('label', get_string('log_operation', 'local_membershipbridge'), ['for' => 'operation'])
-        . html_writer::select($opmenu, 'operation', $operation, false, ['id' => 'operation', 'class' => 'ml-1']),
-    'form-group'
-);
-echo html_writer::div(
-    html_writer::tag('label', get_string('log_status', 'local_membershipbridge'), ['for' => 'status'])
-        . html_writer::select($statusmenu, 'status', $status, false, ['id' => 'status', 'class' => 'ml-1']),
-    'form-group'
-);
-echo html_writer::tag(
-    'button',
-    get_string('log_filter', 'local_membershipbridge'),
-    ['type' => 'submit', 'class' => 'btn btn-secondary']
-);
-echo html_writer::end_div();
-echo html_writer::end_tag('form');
-
-if (!$records) {
-    echo $OUTPUT->notification(get_string('log_empty', 'local_membershipbridge'), 'notifymessage');
-    echo $OUTPUT->footer();
-    exit;
-}
-
-echo html_writer::tag('p', get_string('log_count', 'local_membershipbridge', $total));
-
-$table = new html_table();
-$table->head = [
-    get_string('log_time', 'local_membershipbridge'),
-    get_string('log_user', 'local_membershipbridge'),
-    get_string('log_operation', 'local_membershipbridge'),
-    get_string('contactid', 'local_membershipbridge'),
-    get_string('log_product', 'local_membershipbridge'),
-    get_string('log_status', 'local_membershipbridge'),
-    get_string('log_detail', 'local_membershipbridge'),
-];
-$table->attributes['class'] = 'generaltable';
-$table->data = [];
-
+// One row per entry. Every value is escaped by the template.
+$rows = [];
 foreach ($records as $row) {
-    // User cell.
-    if (!empty($row->userid) && isset($users[$row->userid])) {
-        $usercell = html_writer::link(
-            new moodle_url('/user/view.php', ['id' => $row->userid]),
-            fullname($users[$row->userid])
-        );
-    } else {
-        $usercell = '-';
-    }
-
-    // Status badge.
-    $badgeclass = ($row->status === \local_membershipbridge\logger::STATUS_SUCCESS) ? 'badge badge-success' : 'badge badge-danger';
-    $statuscell = html_writer::tag('span', s($row->status), ['class' => $badgeclass]);
-
-    // Collapsible request/response and error.
-    $detail = '';
-    if ($row->error !== null && $row->error !== '') {
-        $detail .= html_writer::tag('div', s($row->error), ['class' => 'text-danger mb-1']);
-    }
-    $pre = '';
-    if (!empty($row->request)) {
-        $pre .= html_writer::tag('strong', get_string('log_request', 'local_membershipbridge'));
-        $pre .= html_writer::tag('pre', s($row->request), ['class' => 'bg-light p-2']);
-    }
-    if (!empty($row->response)) {
-        $pre .= html_writer::tag('strong', get_string('log_response', 'local_membershipbridge'));
-        $pre .= html_writer::tag('pre', s($row->response), ['class' => 'bg-light p-2']);
-    }
-    if ($pre !== '') {
-        $detail .= html_writer::tag(
-            'details',
-            html_writer::tag('summary', get_string('log_viewpayload', 'local_membershipbridge')) . $pre
-        );
-    }
-
-    $table->data[] = [
-        userdate($row->timecreated),
-        $usercell,
-        s($row->operation),
-        $row->imisid !== null ? s($row->imisid) : '-',
-        $row->productcode !== null ? s($row->productcode) : '-',
-        $statuscell,
-        $detail !== '' ? $detail : '-',
+    $hasuser = !empty($row->userid) && isset($users[$row->userid]);
+    $error   = (string)($row->error ?? '');
+    $request = (string)($row->request ?? '');
+    $reply   = (string)($row->response ?? '');
+    $rows[] = [
+        'time'       => userdate($row->timecreated),
+        'hasuser'    => $hasuser,
+        'userurl'    => $hasuser ? (new moodle_url('/user/view.php', ['id' => $row->userid]))->out(false) : '',
+        'username'   => $hasuser ? fullname($users[$row->userid]) : '',
+        'operation'  => $row->operation,
+        'member'     => $row->imisid ?? '-',
+        'product'    => $row->productcode ?? '-',
+        'success'    => ($row->status === \local_membershipbridge\logger::STATUS_SUCCESS),
+        'status'     => $row->status,
+        'error'      => $error,
+        'request'    => $request,
+        'response'   => $reply,
+        'haspayload' => ($request !== '' || $reply !== ''),
     ];
 }
 
-echo html_writer::table($table);
-echo $OUTPUT->paging_bar($total, $page, $perpage, $pageurl);
+echo $OUTPUT->render_from_template('local_membershipbridge/audit_log', [
+    'actionurl'  => $baseurl->out_omit_querystring(),
+    'operations' => $options($opmenu, $operation),
+    'statuses'   => $options($statusmenu, $status),
+    'hasrows'    => !empty($rows),
+    'count'      => get_string('log_count', 'local_membershipbridge', $total),
+    'rows'       => $rows,
+]);
+
+if (!$rows) {
+    echo $OUTPUT->notification(get_string('log_empty', 'local_membershipbridge'), 'notifymessage');
+} else {
+    echo $OUTPUT->paging_bar($total, $page, $perpage, $pageurl);
+}
 echo $OUTPUT->footer();

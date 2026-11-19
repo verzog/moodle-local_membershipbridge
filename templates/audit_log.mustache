@@ -1,0 +1,121 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_membershipbridge/audit_log
+
+    The integration audit log: filters, the number of entries and one page of them.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * actionurl - The audit log URL the filter form submits to.
+    * operations - Operation filter options: value, label, selected.
+    * statuses - Status filter options: value, label, selected.
+    * hasrows - Whether there are entries to show.
+    * count - The total number of matching entries, as a sentence.
+    * rows - The entries on this page, each with: time, hasuser, userurl, username,
+      operation, member, product, success, status, error, request, response, haspayload.
+
+    Example context (json):
+    {
+        "actionurl": "https://example.com/local/membershipbridge/admin/log.php",
+        "operations": [
+            {"value": "", "label": "All", "selected": true},
+            {"value": "MoodleUpdate", "label": "MoodleUpdate", "selected": false}
+        ],
+        "statuses": [{"value": "", "label": "All", "selected": true}, {"value": "error", "label": "Error", "selected": false}],
+        "hasrows": true,
+        "count": "1 entries",
+        "rows": [{
+            "time": "Wednesday, 19 November 2026, 9:00 AM",
+            "hasuser": true, "userurl": "https://example.com/user/view.php?id=5", "username": "Sam Learner",
+            "operation": "MoodleUpdate", "member": "20018", "product": "-",
+            "success": false, "status": "error", "error": "ResultCode 1: rejected",
+            "haspayload": true, "request": "<request/>", "response": "<response/>"
+        }]
+    }
+}}
+<form method="get" action="{{actionurl}}" class="mb-3">
+    <div class="form-inline d-flex gap-2 flex-wrap align-items-end">
+        <div class="form-group">
+            <label for="operation">{{#str}} log_operation, local_membershipbridge {{/str}}</label>
+            <select id="operation" name="operation" class="custom-select ml-1">
+                {{#operations}}
+                <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
+                {{/operations}}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="status">{{#str}} log_status, local_membershipbridge {{/str}}</label>
+            <select id="status" name="status" class="custom-select ml-1">
+                {{#statuses}}
+                <option value="{{value}}"{{#selected}} selected{{/selected}}>{{label}}</option>
+                {{/statuses}}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary">{{#str}} log_filter, local_membershipbridge {{/str}}</button>
+    </div>
+</form>
+{{#hasrows}}
+<p>{{count}}</p>
+<table class="generaltable">
+    <thead>
+        <tr>
+            <th scope="col">{{#str}} log_time, local_membershipbridge {{/str}}</th>
+            <th scope="col">{{#str}} log_user, local_membershipbridge {{/str}}</th>
+            <th scope="col">{{#str}} log_operation, local_membershipbridge {{/str}}</th>
+            <th scope="col">{{#str}} contactid, local_membershipbridge {{/str}}</th>
+            <th scope="col">{{#str}} log_product, local_membershipbridge {{/str}}</th>
+            <th scope="col">{{#str}} log_status, local_membershipbridge {{/str}}</th>
+            <th scope="col">{{#str}} log_detail, local_membershipbridge {{/str}}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{#rows}}
+        <tr>
+            <td>{{time}}</td>
+            <td>{{#hasuser}}<a href="{{userurl}}">{{username}}</a>{{/hasuser}}{{^hasuser}}-{{/hasuser}}</td>
+            <td>{{operation}}</td>
+            <td>{{member}}</td>
+            <td>{{product}}</td>
+            <td><span class="badge {{#success}}badge-success{{/success}}{{^success}}badge-danger{{/success}}">{{status}}</span></td>
+            <td>
+                {{#error}}<div class="text-danger mb-1">{{error}}</div>{{/error}}
+                {{#haspayload}}
+                <details>
+                    <summary>{{#str}} log_viewpayload, local_membershipbridge {{/str}}</summary>
+                    {{#request}}
+                    <strong>{{#str}} log_request, local_membershipbridge {{/str}}</strong>
+                    <pre class="bg-light p-2">{{request}}</pre>
+                    {{/request}}
+                    {{#response}}
+                    <strong>{{#str}} log_response, local_membershipbridge {{/str}}</strong>
+                    <pre class="bg-light p-2">{{response}}</pre>
+                    {{/response}}
+                </details>
+                {{/haspayload}}
+                {{^error}}{{^haspayload}}-{{/haspayload}}{{/error}}
+            </td>
+        </tr>
+        {{/rows}}
+    </tbody>
+</table>
+{{/hasrows}}
