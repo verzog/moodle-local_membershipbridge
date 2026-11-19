@@ -1,0 +1,64 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_membershipbridge/push_completion_form
+
+    The "Push completion (test)" form on the sync page: sends one completion record
+    for a member and course on demand.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * actionurl - The sync page URL the form posts to.
+    * sesskey - The session key.
+    * pushmemberid - The member ID to show in the field.
+
+    Example context (json):
+    {
+        "actionurl": "https://example.com/local/membershipbridge/admin/sync.php",
+        "sesskey": "abc123",
+        "pushmemberid": "20018"
+    }
+}}
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">{{#str}} pushtest, local_membershipbridge {{/str}}</h5>
+        <p class="text-muted">{{#str}} pushcompletion_help, local_membershipbridge {{/str}}</p>
+        <form method="post" action="{{actionurl}}">
+            <input type="hidden" name="sesskey" value="{{sesskey}}">
+            <div class="form-group">
+                <label for="pushmemberid">{{#str}} pushmemberid, local_membershipbridge {{/str}}</label>
+                <input type="text" id="pushmemberid" name="pushmemberid" class="form-control" value="{{pushmemberid}}"
+                    placeholder="{{#str}} contactidplaceholder, local_membershipbridge {{/str}}">
+            </div>
+            <div class="form-group">
+                <label for="pushcourseid">{{#str}} pushcourseid, local_membershipbridge {{/str}}</label>
+                <input type="number" id="pushcourseid" name="pushcourseid" class="form-control" min="1">
+                <small class="form-text text-muted">{{#str}} pushcourseidhelp, local_membershipbridge {{/str}}</small>
+            </div>
+            <div class="mt-3">
+                <button type="submit" name="action" value="pushcompletion" class="btn btn-primary">
+                    {{#str}} pushcompletion, local_membershipbridge {{/str}}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,57 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_membershipbridge/schedule_card
+
+    The scheduled task times on the sync page, with links to the audit log and the
+    task run logs.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * auditurl - The integration audit log URL.
+    * logsurl - The scheduled task run logs URL.
+
+    Example context (json):
+    {
+        "auditurl": "https://example.com/local/membershipbridge/admin/log.php",
+        "logsurl": "https://example.com/admin/tasklogs.php"
+    }
+}}
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">{{#str}} scheduledtaskstatus, local_membershipbridge {{/str}}</h5>
+        <p>{{#str}} scheduledtaskintro, local_membershipbridge {{/str}}</p>
+        <ul>
+            <li>{{#str}} schedule_enrollments, local_membershipbridge {{/str}}</li>
+            <li>{{#str}} schedule_cancellations, local_membershipbridge {{/str}}</li>
+            <li>{{#str}} schedule_groups, local_membershipbridge {{/str}}</li>
+            <li>{{#str}} schedule_tutorialgroups, local_membershipbridge {{/str}}</li>
+            <li>{{#str}} schedule_cleanup, local_membershipbridge {{/str}}</li>
+        </ul>
+        {{! The audit log shows what was sent and the result; the task logs show the cron output. }}
+        <p class="text-muted">{{#str}} viewlogshelp, local_membershipbridge {{/str}}</p>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{{auditurl}}" class="btn btn-primary btn-sm">{{#str}} openlog, local_membershipbridge {{/str}}</a>
+            <a href="{{logsurl}}" class="btn btn-secondary btn-sm">{{#str}} viewtaskrunlogs, local_membershipbridge {{/str}}</a>
+        </div>
+    </div>
+</div>
