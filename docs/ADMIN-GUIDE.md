@@ -94,9 +94,16 @@ event belongs to. Choose one under **Course mapping**:
 - **Moodle course ID number**: nothing to build in iMIS. In each course, set
   *Course settings › General › Course ID number* to the iMIS event code, for example
   `ACCD_26`.
-- **Lookup query**: an iMIS IQA that returns the Moodle course id for an event code. Set
-  *Course lookup IQA* to its path. If your lookup uses a product code such as `ACCD_26/REG`,
-  set *Registration product suffix* to `/REG`.
+- **Lookup query**: an iMIS IQA that looks up the Moodle course id for an event code. Build
+  it to these rules, or every event is left unmapped:
+  - its one prompt takes the event code;
+  - it returns the Moodle course id in a column named exactly `Description` (if it also
+    returns a `Code` column, that must equal the code looked up);
+  - it is ticked *Available via REST API*.
+
+  Set *Course lookup IQA* to its path, for example `$/MyOrg/Events/MoodleCourseLookup`. If
+  your lookup uses a product code such as `ACCD_26/REG`, set *Registration product suffix*
+  to `/REG`.
 
 **Course mapping overrides** (one `CODE=courseid` per line) always win. They are useful for
 pointing an event at a test course.
@@ -106,16 +113,29 @@ pointing an event at a test course.
 How enrolment works depends on the **Sync provider**.
 
 **ATS SOAP bridge.** ATS performs the enrolments. Moodle asks ATS each night (and when a
-member logs in) to send new and cancelled orders. Make sure ATS's web service user has the
-**Cancel enrolment** capability (`local/membershipbridge:cancelenrolment`) at system level.
-That service suspends cancelled learners instead of unenrolling them, so their grades and
-completion are kept.
+member logs in) to send new and cancelled orders, and ATS then calls Moodle's web services.
+
+For cancellations to *suspend* learners (keeping their grades and completion) rather than
+unenrol them, all three of these are needed:
+
+1. In iMIS (`MOODLE_SETTINGS`), point ATS's `FN_ENROL_MANUAL_UNENROL_USERS` mapping at
+   `local_membershipbridge_cancel_enrolment`.
+2. Add `local_membershipbridge_cancel_enrolment` to the Moodle external service that ATS's
+   token uses (**Site administration › Server › Web services › External services**).
+3. Give ATS's web service user the **Cancel enrolment** capability
+   (`local/membershipbridge:cancelenrolment`) at system level.
+
+**If the mapping still points at Moodle's own `enrol_manual_unenrol_users`, ATS keeps
+unenrolling cancelled learners, and their grades and completion can be lost.**
+`docs/CHANGEOVER-CHECKLIST.md` sections C and D give the full recipe.
 
 **Direct REST API** (the registration sync). Moodle reads registrations from iMIS itself:
 
-1. In iMIS, build an IQA listing current registrations with the columns `ID`, `EventCode`
-   and `Status`. Add `FirstName`, `LastName` and `Email` if Moodle should create accounts
-   for new members. Tick *Available via REST API*.
+1. In iMIS, build an IQA listing current registrations with the columns `ID`, `EventCode`,
+   `Status` and `EndDate` (the event's end date; `EndDateTime` also works). Add
+   `FirstName`, `LastName` and `Email` if Moodle should create accounts for new members.
+   Tick *Available via REST API*. Without `EndDate`, the look-back window below cannot
+   apply, so registrations for long-finished events can still enrol or suspend people.
 2. Set **Registrations IQA** to its path and **Sync provider** to *Direct REST API*.
 3. Check the registration settings:
 
@@ -124,7 +144,7 @@ completion are kept.
 | Registration sync: dry run | Report only; change nothing | On |
 | Registration sync: create accounts | Create a Moodle account for a new member | On |
 | Registration sync: cancelled status codes | Status values that mean cancelled | `C` |
-| Registration sync: look-back (days) | Ignore events that ended longer ago than this | 7 |
+| Registration sync: look-back (days) | Ignore events that ended longer ago than this (needs `EndDate`) | 7 |
 | Registration sync: suspension guard (%) | Skip a course's suspensions if a run would suspend more than this share of it | 50 |
 
 4. Run a dry run (see *Running a task now* below) and read the task log.
