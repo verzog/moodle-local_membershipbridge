@@ -4,12 +4,27 @@ All notable changes to the iMIS Bridge plugin (`local_imisbridge`) are documente
 in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.3.1] - 2026-11-19
+
+Fixes for the two findings from the Moodle Plugins directory review, and new
+documentation. Nothing changes for learners, and no setting needs changing. Run the
+upgrade after deploying (Site administration > Notifications) so Moodle picks up the
+new templates.
 
 ### Changed
 - The *Manual sync controls* and *Integration audit log* pages are drawn with
   Mustache templates (`templates/`) instead of HTML written from PHP. They look and
   work the same. Their forms now post to the page's own address.
+- The one-off migration from `local_imisbridge` reads the old plugin's settings with
+  `get_config()` instead of querying the `config_plugins` table directly. It behaves
+  the same.
+
+### Added
+- `docs/ADMIN-GUIDE.md` (setup, day-to-day use and troubleshooting, for site
+  administrators) and `docs/STAFF-GUIDE.md` (for teachers, tutors and support
+  staff), with HTML versions in `docs/freshdesk/` for a Freshdesk knowledge base.
+- The README is brought up to date with 2.3.0 and carries the plugin's logo. The
+  images in `docs/images/` are not included in the release zip.
 
 ## [2.3.0] - 2026-11-05
 
