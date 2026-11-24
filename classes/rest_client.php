@@ -511,7 +511,8 @@ class rest_client implements \local_membershipbridge\provider\org_sync_provider 
     }
 
     /**
-     * Build a configured Moodle curl client with the request timeout applied.
+     * Build a configured Moodle curl client with the request timeout applied and
+     * certificate checking switched on.
      *
      * @return \curl
      */
@@ -522,6 +523,10 @@ class rest_client implements \local_membershipbridge\provider\org_sync_provider 
         $curl->setopt([
             'CURLOPT_TIMEOUT'        => $this->timeout,
             'CURLOPT_CONNECTTIMEOUT' => $this->timeout,
+            // Moodle's curl class does not verify certificates by default. These calls
+            // carry the service-account password and bearer tokens, so always verify.
+            'CURLOPT_SSL_VERIFYPEER' => true,
+            'CURLOPT_SSL_VERIFYHOST' => 2,
         ]);
         return $curl;
     }

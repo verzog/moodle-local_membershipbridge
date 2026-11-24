@@ -388,6 +388,8 @@ if ($message) {
 }
 if ($notice) {
     // A record was still sent, but with placeholder status/score: warn, don't block.
+    // Reviewed: the member value is escaped with s() inside $nosingleusernotice.
+    // Nosemgrep: moodle-unescaped-output .
     echo $OUTPUT->notification($notice, 'notifywarning');
 }
 if ($error) {
