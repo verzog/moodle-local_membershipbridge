@@ -33,6 +33,21 @@ namespace local_membershipbridge;
  */
 class util {
     /**
+     * Whether iMIS certificate checks are switched off, for a development server.
+     *
+     * Read only from config.php (`$CFG->local_membershipbridge_insecure_tls = true;`),
+     * never from the database. So it cannot be ticked on an admin page or flipped
+     * by a hijacked admin login, and a database copied between servers doesn't carry it.
+     * Only the exact value true counts.
+     *
+     * @return bool True when config.php switches the checks off.
+     */
+    public static function insecure_tls(): bool {
+        global $CFG;
+        return ($CFG->local_membershipbridge_insecure_tls ?? false) === true;
+    }
+
+    /**
      * Whether a sync toggle is enabled.
      *
      * Every toggle defaults to on: an unset value (e.g. immediately after an

@@ -383,11 +383,16 @@ if ($action === 'testconnection' && $ispost) {
 
 echo $OUTPUT->header();
 
+if (\local_membershipbridge\util::insecure_tls()) {
+    echo $OUTPUT->notification(get_string('insecuretls_warning', 'local_membershipbridge'), 'notifyproblem');
+}
 if ($message) {
     echo $OUTPUT->notification($message, 'notifysuccess');
 }
 if ($notice) {
     // A record was still sent, but with placeholder status/score: warn, don't block.
+    // Reviewed: the member value is escaped with s() inside $nosingleusernotice.
+    // Nosemgrep: moodle-unescaped-output .
     echo $OUTPUT->notification($notice, 'notifywarning');
 }
 if ($error) {

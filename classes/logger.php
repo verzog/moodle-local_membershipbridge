@@ -155,13 +155,30 @@ class logger {
     /**
      * Redact credentials from SOAP XML before storing it.
      *
-     * Strips the AuthToken value, the getToken session-token result, and any
-     * ATS token of the form MO-xxxxxx, in both requests and responses.
+     * Strips the AuthToken value, the getToken session-token result, any ATS
+     * token of the form MO-xxxxxx, REST bearer/OAuth tokens and passwords, and
+     * the configured secrets themselves wherever they appear (iMIS can echo a
+     * rejected credential back in an error message).
      *
-     * @param string $xml The raw SOAP XML.
-     * @return string The XML with credentials replaced.
+     * @param string $xml The raw SOAP XML, JSON, form body or error text.
+     * @return string The text with credentials replaced.
      */
     public static function redact(string $xml): string {
+        // The configured secrets, removed literally and first - this catches echoes
+        // that no pattern can recognise (e.g. a password containing '&' or '"'),
+        // before a pattern below can cut a secret in half and hide the rest.
+        foreach (['rest_password', 'auth_token'] as $name) {
+            $secret = (string)get_config('local_membershipbridge', $name);
+            if (\core_text::strlen($secret) < 4) {
+                // Too short to replace safely without mangling ordinary text.
+                continue;
+            }
+            $forms = array_unique([$secret, urlencode($secret), rawurlencode($secret), substr(json_encode($secret), 1, -1)]);
+            // Longest first: an escaped form ('secret\\') must go whole before its raw prefix ('secret\').
+            usort($forms, fn(string $a, string $b): int => strlen($b) <=> strlen($a));
+            $xml = str_replace($forms, '[redacted]', $xml);
+        }
+
         $elements = [
             '#(<(?:\w+:)?AuthToken>).*?(</(?:\w+:)?AuthToken>)#is',
             '#(<(?:\w+:)?Token>).*?(</(?:\w+:)?Token>)#is',
@@ -171,12 +188,16 @@ class logger {
             $xml = (string)preg_replace($pattern, '${1}[redacted]${2}', $xml);
         }
 
-        // REST credentials: bearer tokens, OAuth token JSON, and form-encoded or
-        // JSON password/grant fields.
-        $xml = (string)preg_replace('/(Bearer\s+)[A-Za-z0-9._\-]+/i', '${1}[redacted]', $xml);
-        $xml = (string)preg_replace('/("access_token"\s*:\s*")[^"]*(")/i', '${1}[redacted]${2}', $xml);
-        $xml = (string)preg_replace('/("password"\s*:\s*")[^"]*(")/i', '${1}[redacted]${2}', $xml);
-        $xml = (string)preg_replace('/(\bpassword=)[^&\s]*/i', '${1}[redacted]', $xml);
+        // REST credentials. A bearer token runs to the next space or delimiter, so
+        // base64 tokens containing + / = are removed whole.
+        $xml = (string)preg_replace('/(Bearer\s+)[^\s"\'<>,;]+/i', '${1}[redacted]', $xml);
+
+        // JSON secret fields; the value may contain escaped quotes (\").
+        $fields = 'access_token|refresh_token|id_token|client_secret|password';
+        $xml = (string)preg_replace('/("(?:' . $fields . ')"\s*:\s*")(?:[^"\\\\]|\\\\.)*(")/i', '${1}[redacted]${2}', $xml);
+
+        // Form-encoded secret fields.
+        $xml = (string)preg_replace('/(\b(?:' . $fields . ')=)[^&\s]*/i', '${1}[redacted]', $xml);
 
         return (string)preg_replace('/MO-[A-Za-z0-9]+/', 'MO-[redacted]', $xml);
     }

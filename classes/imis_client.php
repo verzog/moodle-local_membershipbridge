@@ -320,21 +320,26 @@ class imis_client implements \local_membershipbridge\provider\org_sync_provider 
      * Extracted so the endpoint-override behaviour can be unit tested without a
      * live WSDL. When $endpoint is a non-empty string it is passed as the SOAP
      * `location`, which overrides the address embedded in the WSDL for every call.
+     * PHP checks certificates by default; only a development server's config.php
+     * switches that off (see {@see util::insecure_tls()}).
      *
      * @param int         $timeout  Connection/read timeout in seconds.
      * @param string|null $endpoint Optional service endpoint URL override.
      * @return array The options array for the SoapClient constructor.
      */
     public static function build_soap_options(int $timeout, ?string $endpoint): array {
+        $context = ['http' => ['timeout' => $timeout]];
+        if (util::insecure_tls()) {
+            // Development servers only. This also covers fetching the WSDL.
+            $context['ssl'] = ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true];
+        }
         $options = [
             'trace'              => true,
             'exceptions'         => true,
             'cache_wsdl'         => WSDL_CACHE_DISK,
             'soap_version'       => SOAP_1_1,
             'connection_timeout' => $timeout,
-            'stream_context'     => stream_context_create([
-                'http' => ['timeout' => $timeout],
-            ]),
+            'stream_context'     => stream_context_create($context),
         ];
         if (!empty($endpoint)) {
             $options['location'] = $endpoint;

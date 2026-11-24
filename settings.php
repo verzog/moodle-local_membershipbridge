@@ -29,6 +29,16 @@ if ($hassiteconfig) {
 
     $ADMIN->add('localplugins', $settings);
 
+    // Certificate checks switched off in config.php (development servers only): say so
+    // loudly at the top of the page, so it is noticed if it reaches production.
+    if (\local_membershipbridge\util::insecure_tls()) {
+        $settings->add(new admin_setting_heading(
+            'local_membershipbridge/insecuretls',
+            '',
+            html_writer::div(get_string('insecuretls_warning', 'local_membershipbridge'), 'alert alert-danger')
+        ));
+    }
+
     // Register the sync and audit-log pages as admin external pages so they appear
     // in the admin navigation and can be added to the admin bookmarks.
     $ADMIN->add('localplugins', new admin_externalpage(
