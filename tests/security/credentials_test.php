@@ -140,6 +140,44 @@ final class credentials_test extends \advanced_testcase {
     }
 
     /**
+     * Passwords ending in, or containing, backslashes.
+     *
+     * @return array
+     */
+    public static function backslash_password_provider(): array {
+        return [
+            'ends in a backslash' => ['secret\\'],
+            'backslash before a quote' => ['a\\b"c\\'],
+            'doubled backslashes' => ['back\\\\slash'],
+        ];
+    }
+
+    /**
+     * A password ending in a backslash must not leave a stray backslash that hides
+     * the tokens next to it: removing it literally before the JSON fields left the
+     * password's closing quote escaped, so the following access_token was stored.
+     *
+     * @param string $password The configured password.
+     * @return void
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('backslash_password_provider')]
+    public function test_redact_password_with_backslash_keeps_tokens_hidden(string $password): void {
+        set_config('rest_password', $password, 'local_membershipbridge');
+
+        $orders = [
+            json_encode(['password' => $password, 'access_token' => 'AT-secret-1', 'refresh_token' => 'RT-secret-2']),
+            json_encode(['access_token' => 'AT-secret-1', 'password' => $password, 'refresh_token' => 'RT-secret-2']),
+        ];
+        foreach ($orders as $json) {
+            $out = logger::redact($json);
+
+            $this->assertStringNotContainsString('AT-secret-1', $out, $json);
+            $this->assertStringNotContainsString('RT-secret-2', $out, $json);
+            $this->assertStringNotContainsString(substr(json_encode($password), 1, -1), $out, $json);
+        }
+    }
+
+    /**
      * Form-encoded passwords are removed, whatever the field's capitalisation.
      *
      * @return void

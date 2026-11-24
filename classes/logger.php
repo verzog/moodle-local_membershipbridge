@@ -164,18 +164,6 @@ class logger {
      * @return string The text with credentials replaced.
      */
     public static function redact(string $xml): string {
-        // The configured secrets, removed literally first - this catches echoes
-        // that no pattern can recognise (e.g. a password containing '&' or '"').
-        foreach (['rest_password', 'auth_token'] as $name) {
-            $secret = (string)get_config('local_membershipbridge', $name);
-            if (\core_text::strlen($secret) < 4) {
-                // Too short to replace safely without mangling ordinary text.
-                continue;
-            }
-            $forms = array_unique([$secret, urlencode($secret), rawurlencode($secret), substr(json_encode($secret), 1, -1)]);
-            $xml = str_replace($forms, '[redacted]', $xml);
-        }
-
         $elements = [
             '#(<(?:\w+:)?AuthToken>).*?(</(?:\w+:)?AuthToken>)#is',
             '#(<(?:\w+:)?Token>).*?(</(?:\w+:)?Token>)#is',
@@ -195,6 +183,20 @@ class logger {
 
         // Form-encoded secret fields.
         $xml = (string)preg_replace('/(\b(?:' . $fields . ')=)[^&\s]*/i', '${1}[redacted]', $xml);
+
+        // The configured secrets, removed literally - this catches echoes
+        // that no pattern can recognise (e.g. a password containing '&' or '"').
+        foreach (['rest_password', 'auth_token'] as $name) {
+            $secret = (string)get_config('local_membershipbridge', $name);
+            if (\core_text::strlen($secret) < 4) {
+                // Too short to replace safely without mangling ordinary text.
+                continue;
+            }
+            $forms = array_unique([$secret, urlencode($secret), rawurlencode($secret), substr(json_encode($secret), 1, -1)]);
+            // Longest first: an escaped form ('secret\\') must go whole before its raw prefix ('secret\').
+            usort($forms, fn(string $a, string $b): int => strlen($b) <=> strlen($a));
+            $xml = str_replace($forms, '[redacted]', $xml);
+        }
 
         return (string)preg_replace('/MO-[A-Za-z0-9]+/', 'MO-[redacted]', $xml);
     }
