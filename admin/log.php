@@ -73,6 +73,10 @@ $users   = $userids ? $DB->get_records_list('user', 'id', $userids, '', '*') : [
 
 echo $OUTPUT->header();
 
+if (\local_membershipbridge\util::insecure_tls()) {
+    echo $OUTPUT->notification(get_string('insecuretls_warning', 'local_membershipbridge'), 'notifyproblem');
+}
+
 // Filter options.
 $operations = $DB->get_fieldset_sql('SELECT DISTINCT operation FROM {local_membershipbridge_log} ORDER BY operation');
 $opmenu     = ['' => get_string('log_filter_all', 'local_membershipbridge')];

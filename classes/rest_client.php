@@ -512,21 +512,23 @@ class rest_client implements \local_membershipbridge\provider\org_sync_provider 
 
     /**
      * Build a configured Moodle curl client with the request timeout applied and
-     * certificate checking switched on.
+     * certificate checking switched on (unless a development server's config.php
+     * switches it off: see {@see util::insecure_tls()}).
      *
      * @return \curl
      */
     private function new_curl(): \curl {
         global $CFG;
         require_once($CFG->libdir . '/filelib.php');
+        $verify = !util::insecure_tls();
         $curl = new \curl();
         $curl->setopt([
             'CURLOPT_TIMEOUT'        => $this->timeout,
             'CURLOPT_CONNECTTIMEOUT' => $this->timeout,
             // Moodle's curl class does not verify certificates by default. These calls
-            // carry the service-account password and bearer tokens, so always verify.
-            'CURLOPT_SSL_VERIFYPEER' => true,
-            'CURLOPT_SSL_VERIFYHOST' => 2,
+            // carry the service-account password and bearer tokens, so verify them.
+            'CURLOPT_SSL_VERIFYPEER' => $verify,
+            'CURLOPT_SSL_VERIFYHOST' => $verify ? 2 : 0,
         ]);
         return $curl;
     }

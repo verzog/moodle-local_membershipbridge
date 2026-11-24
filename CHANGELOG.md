@@ -4,6 +4,17 @@ All notable changes to the iMIS Bridge plugin (`local_imisbridge`) are documente
 in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- A development-server switch for iMIS certificate checks. Membership Bridge now checks
+  iMIS's certificate on every REST and SOAP connection, so a development iMIS server with a
+  self-signed certificate is refused. On a development server only, adding
+  `$CFG->local_membershipbridge_insecure_tls = true;` to `config.php` switches the checks
+  off. It can't be set from an admin page or the database. While it's on, the settings,
+  sync and audit log pages show a red warning. Installing the server's CA certificate is
+  still the better fix. Never use the switch on production.
+
 ## [2.3.1] - 2026-11-19
 
 Fixes for the two findings from the Moodle Plugins directory review, and new

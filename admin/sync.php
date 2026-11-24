@@ -383,6 +383,9 @@ if ($action === 'testconnection' && $ispost) {
 
 echo $OUTPUT->header();
 
+if (\local_membershipbridge\util::insecure_tls()) {
+    echo $OUTPUT->notification(get_string('insecuretls_warning', 'local_membershipbridge'), 'notifyproblem');
+}
 if ($message) {
     echo $OUTPUT->notification($message, 'notifysuccess');
 }
