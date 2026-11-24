@@ -63,6 +63,21 @@ connection provider.
 The tutorial group sync and the REST registration sync always use the REST settings, so fill
 those in if you use either feature.
 
+**Certificates.** Moodle checks iMIS's security certificate on every connection, and refuses
+a server whose certificate it doesn't trust. A development or staging iMIS server often has a
+self-signed certificate. The safe fix is to install that server's CA certificate on the
+Moodle server, so it's trusted. If you can't, on a **development server only** add this line
+to Moodle's `config.php`:
+
+```php
+$CFG->local_membershipbridge_insecure_tls = true;
+```
+
+This switches the certificate checks off for Membership Bridge, so anyone on the network
+between Moodle and iMIS could read the service-account password. While it's on, the plugin's
+pages show a red warning. It can't be set from an admin page, and it doesn't travel with a
+database copy. **Never use it on production.**
+
 ### Step 3. Match Moodle users to iMIS members
 
 - **Member ID source**: the Moodle user field that holds each person's iMIS member ID.

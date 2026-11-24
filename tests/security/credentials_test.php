@@ -24,8 +24,10 @@
 
 namespace local_membershipbridge\security;
 
+use local_membershipbridge\imis_client;
 use local_membershipbridge\logger;
 use local_membershipbridge\rest_client;
+use local_membershipbridge\util;
 
 /**
  * Credentials never reach the audit log, and the HTTP client keeps its protections.
@@ -44,6 +46,8 @@ use local_membershipbridge\rest_client;
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(logger::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(rest_client::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(imis_client::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(util::class)]
 final class credentials_test extends \advanced_testcase {
     /** @var string A service-account password with characters that need encoding. */
     private const PASSWORD = 'Hunter2!&Secret"pw';
@@ -287,6 +291,50 @@ final class credentials_test extends \advanced_testcase {
         $this->assertNotFalse($context['ssl']['verify_peer'] ?? true, 'verify_peer must not be switched off.');
         $this->assertNotFalse($context['ssl']['verify_peer_name'] ?? true, 'verify_peer_name must not be switched off.');
         $this->assertNotTrue($context['ssl']['allow_self_signed'] ?? false, 'Self-signed certificates must not be allowed.');
+    }
+
+    /**
+     * The dev switch is read only from config.php, and only the exact value true
+     * turns it on: a database setting or a truthy value does nothing.
+     *
+     * @return void
+     */
+    public function test_insecure_tls_only_from_config_php(): void {
+        global $CFG;
+
+        $this->assertFalse(util::insecure_tls(), 'Checks are on by default.');
+
+        set_config('insecure_tls', 1, 'local_membershipbridge');
+        set_config('local_membershipbridge_insecure_tls', 1);
+        $CFG->local_membershipbridge_insecure_tls = 1;
+        $this->assertFalse(util::insecure_tls(), 'Only config.php\'s exact true counts.');
+
+        $CFG->local_membershipbridge_insecure_tls = true;
+        $this->assertTrue(util::insecure_tls());
+    }
+
+    /**
+     * With the dev switch on, the REST and SOAP clients both accept a self-signed
+     * certificate, and the REST client keeps Moodle's blocked-hosts protection.
+     *
+     * @return void
+     */
+    public function test_insecure_tls_switches_off_rest_and_soap_checks(): void {
+        global $CFG;
+        $CFG->local_membershipbridge_insecure_tls = true;
+
+        $client = new rest_client();
+        $options = $this->curl_property($client, 'options');
+        $this->assertFalse($options['CURLOPT_SSL_VERIFYPEER']);
+        $this->assertSame(0, $options['CURLOPT_SSL_VERIFYHOST']);
+        $this->assertFalse($this->curl_property($client, 'ignoresecurity'), 'Blocked-hosts protection must stay on.');
+
+        $soap = imis_client::build_soap_options(30, null);
+        $context = stream_context_get_options($soap['stream_context']);
+        $this->assertFalse($context['ssl']['verify_peer']);
+        $this->assertFalse($context['ssl']['verify_peer_name']);
+        $this->assertTrue($context['ssl']['allow_self_signed']);
+        $this->assertSame(30, $context['http']['timeout'], 'The timeout still applies.');
     }
 
     /**
