@@ -4,16 +4,41 @@ All notable changes to the iMIS Bridge plugin (`local_imisbridge`) are documente
 in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.4.0] - 2026-11-24
+
+Security hardening for the connection to iMIS and the audit log, with new security
+tests. Nothing changes for learners. Run the upgrade after deploying (Site
+administration > Notifications).
+
+**Check before upgrading:** Membership Bridge now refuses an iMIS server whose
+security certificate Moodle doesn't trust. If any of your sites talks to an iMIS
+server with a self-signed certificate (often a dev or staging server), install that
+server's CA certificate on the Moodle server first. On a development server only, the
+`config.php` switch below can be used instead.
+
+### Security
+- iMIS certificates are now checked on REST connections. Moodle's `curl` class doesn't
+  check them by default, so iMIS calls, including the service-account login, accepted
+  any certificate. SOAP connections already checked them (PHP's default), and still do.
+- The audit log is cleaned of secrets more thoroughly. Before, parts of refresh tokens,
+  bearer tokens containing `+`, `/` or `=`, and passwords containing `&` or `"` could
+  reach the log. The configured password and auth token are now also
+  removed wherever they appear, including when iMIS echoes them back in an error.
 
 ### Added
-- A development-server switch for iMIS certificate checks. Membership Bridge now checks
-  iMIS's certificate on every REST and SOAP connection, so a development iMIS server with a
-  self-signed certificate is refused. On a development server only, adding
-  `$CFG->local_membershipbridge_insecure_tls = true;` to `config.php` switches the checks
-  off. It can't be set from an admin page or the database. While it's on, the settings,
-  sync and audit log pages show a red warning. Installing the server's CA certificate is
-  still the better fix. Never use the switch on production.
+- A development-server switch for the certificate checks. On a development server
+  only, adding `$CFG->local_membershipbridge_insecure_tls = true;` to `config.php`
+  switches them off for both REST and SOAP connections. It can't be set from an admin
+  page or the database, so it doesn't travel with a database copy. While it's on, the
+  settings, sync and audit log pages show a red warning. Installing the server's CA
+  certificate is still the better fix. Never use the switch on production.
+- Security tests (`tests/security/`): audit-log redaction, certificate and timeout
+  settings, the development switch, hostile data from iMIS (markup and crafted member
+  IDs), and web service permissions, context and input checks.
+
+### Changed
+- `docs/ADMIN-GUIDE.md` and its Freshdesk version explain certificates and the
+  development switch (Step 2).
 
 ## [2.3.1] - 2026-11-19
 
