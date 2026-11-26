@@ -232,6 +232,22 @@ final class credentials_test extends \advanced_testcase {
     }
 
     /**
+     * A REST error is decoded from JSON and cut to 300 characters before it is logged, so a
+     * cut can split the configured password and defeat the literal removal. A quote inside
+     * that plain text must not end the 'password=' value early.
+     *
+     * @return void
+     */
+    public function test_redact_truncated_plain_text_echo_removes_whole_value(): void {
+        set_config('rest_password', 'prefix"SECRETTAILXYZ', 'local_membershipbridge');
+
+        $out = logger::redact('Login failed: password=prefix"SECRETTA...');
+
+        $this->assertStringNotContainsString('SECRET', $out);
+        $this->assertSame('Login failed: password=[redacted]', $out);
+    }
+
+    /**
      * When iMIS rejects the login and echoes the password back, it is not stored,
      * and the exception shown to the admin does not carry it either.
      *

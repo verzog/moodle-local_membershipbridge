@@ -196,10 +196,16 @@ class logger {
         $fields = 'access_token|refresh_token|id_token|client_secret|password';
         $xml = (string)preg_replace('/("(?:' . $fields . ')"\s*:\s*")(?:[^"\\\\]|\\\\.)*(")/i', '${1}[redacted]${2}', $xml);
 
-        // Form-encoded secret fields. The value also ends at an unescaped quote, so a
-        // 'password=...' echoed inside a JSON string keeps the rest of the JSON; an
-        // escaped quote (\") inside the value doesn't end it.
-        $xml = (string)preg_replace('/(\b(?:' . $fields . ')=)(?:[^&\s"\\\\]|\\\\.)*/i', '${1}[redacted]', $xml);
+        // Form-encoded secret fields. The value runs to the next & or space. It also ends
+        // at a quote that closes a JSON string (one followed by ,"  }  ]  or the end), so a
+        // 'password=...' echoed inside JSON keeps the rest of the JSON. Any other quote,
+        // as in decoded plain-text errors, and an escaped quote (\") stay part of the value.
+        $closing = '"(?=\s*(?:,\s*"|[}\]]|$))';
+        $xml = (string)preg_replace(
+            '/(\b(?:' . $fields . ')=)(?:(?!' . $closing . ')(?:[^&\s\\\\]|\\\\.))*/i',
+            '${1}[redacted]',
+            $xml
+        );
 
         return (string)preg_replace('/MO-[A-Za-z0-9]+/', 'MO-[redacted]', $xml);
     }
