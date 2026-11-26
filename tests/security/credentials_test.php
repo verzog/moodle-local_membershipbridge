@@ -196,6 +196,58 @@ final class credentials_test extends \advanced_testcase {
     }
 
     /**
+     * Passwords that a 'password=' echo inside a JSON error could hold, configured or not.
+     *
+     * @return array
+     */
+    public static function echoed_password_provider(): array {
+        return [
+            'configured, with & and a quote' => [self::PASSWORD, true],
+            'not configured, plain' => ['plainpass', false],
+            'not configured, with a quote' => ['with"quote', false],
+            'not configured, ending in a backslash' => ['endslash\\', false],
+        ];
+    }
+
+    /**
+     * A 'password=' echoed inside a JSON error is removed without cutting off the rest
+     * of the JSON, so the stored error is still readable.
+     *
+     * @param string $password   The echoed password.
+     * @param bool   $configured Whether it is the configured REST password.
+     * @return void
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('echoed_password_provider')]
+    public function test_redact_password_echo_keeps_json_intact(string $password, bool $configured): void {
+        if ($configured) {
+            set_config('rest_password', $password, 'local_membershipbridge');
+        }
+        $json = json_encode(['error_description' => 'Login failed with password=' . $password, 'code' => 7]);
+        $out = logger::redact($json);
+
+        $decoded = json_decode($out);
+        $this->assertNotNull($decoded, 'The redacted text is still valid JSON: ' . $out);
+        $this->assertSame(7, $decoded->code);
+        $this->assertSame('Login failed with password=[redacted]', $decoded->error_description);
+    }
+
+    /**
+     * A REST error is decoded from JSON and cut to 300 characters before it is logged, so a
+     * cut can split the configured password and defeat the literal removal. A quote inside
+     * that plain text must not end the 'password=' value early.
+     *
+     * @return void
+     */
+    public function test_redact_truncated_plain_text_echo_removes_whole_value(): void {
+        set_config('rest_password', 'prefix"SECRETTAILXYZ', 'local_membershipbridge');
+
+        $out = logger::redact('Login failed: password=prefix"SECRETTA...');
+
+        $this->assertStringNotContainsString('SECRET', $out);
+        $this->assertSame('Login failed: password=[redacted]', $out);
+    }
+
+    /**
      * When iMIS rejects the login and echoes the password back, it is not stored,
      * and the exception shown to the admin does not carry it either.
      *
